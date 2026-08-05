@@ -1,5 +1,5 @@
 <?php
-// app/core/Controller.php
+// core/Controller.php
 
 /**
  * المتحكم الأساسي - كل المتحكمات ترث منه
@@ -48,7 +48,7 @@ abstract class Controller {
     /**
      * إرجاع استجابة JSON
      */
-    protected function json(array $data, int $code = 200): void {
+    protected function jsonResponse(array $data, int $code = 200): void {
         http_response_code($code);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($data, JSON_UNESCAPED_UNICODE);
@@ -63,6 +63,13 @@ abstract class Controller {
     }
     
     /**
+     * التحقق من أن الطلب هو GET
+     */
+    protected function isGet(): bool {
+        return $_SERVER['REQUEST_METHOD'] === 'GET';
+    }
+    
+    /**
      * التحقق من أن الطلب هو AJAX
      */
     protected function isAjax(): bool {
@@ -73,7 +80,7 @@ abstract class Controller {
     /**
      * الحصول على بيانات POST منظفة
      */
-    protected function getPost(): array {
+    protected function getPostData(array $keys = []): array {
         $data = [];
         
         if ($this->isPost()) {
@@ -84,6 +91,17 @@ abstract class Controller {
                     $data[$key] = trim($value);
                 }
             }
+        }
+        
+        // إذا تم تحديد مفاتيح معينة، نرجع فقط هذه المفاتيح
+        if (!empty($keys)) {
+            $filtered = [];
+            foreach ($keys as $key) {
+                if (isset($data[$key])) {
+                    $filtered[$key] = $data[$key];
+                }
+            }
+            return $filtered;
         }
         
         return $data;
@@ -146,7 +164,7 @@ abstract class Controller {
      */
     protected function checkSessionTimeout(): void {
         $lastActivity = $_SESSION['last_activity'] ?? 0;
-        $timeout = SESSION_LIFETIME ?? 7200; // افتراضي 2 ساعة
+        $timeout = defined('SESSION_LIFETIME') ? SESSION_LIFETIME : 7200; // افتراضي 2 ساعة
         
         if ($lastActivity > 0 && (time() - $lastActivity) > $timeout) {
             // انتهت الجلسة
@@ -168,18 +186,16 @@ abstract class Controller {
         unset($_SESSION['user_name']);
         unset($_SESSION['user_role']);
         unset($_SESSION['last_activity']);
+        unset($_SESSION['login_time']);
+        unset($_SESSION['ip_address']);
+        unset($_SESSION['user_agent']);
         
         // تدمير الجلسة بالكامل
         session_destroy();
-        
-        // إعادة تعيين معرف الجلسة
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_regenerate_id(true);
-        }
     }
     
     /**
-     * التحقق من صلاحيات معينة
+     * التحقق من صلاحية معينة
      */
     protected function requireRole(string $role): void {
         $this->requireAuth();

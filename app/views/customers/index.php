@@ -1,18 +1,22 @@
 <?php
 // app/views/customers/index.php
-// ========================================
-// بيانات الصفحة تُمرر من المتحكم
-// ========================================
- $pageTitle = $data['title'] ?? 'إدارة العملاء';
- $customers = $data['customers'] ?? [];
- $search = $data['search'] ?? '';
- $filter = $data['filter'] ?? 'all';
- $totalReceivables = $data['total_receivables'] ?? 0;
- $flash = $data['flash'] ?? null;
- $currentUrl = $_GET['url'] ?? 'customer/index';
+$pageTitle = $data['title'] ?? 'إدارة العملاء';
+$customers = $data['customers'] ?? [];
+$search = $data['search'] ?? '';
+$filter = $data['filter'] ?? 'all';
+$totalReceivables = $data['total_receivables'] ?? 0;
+$totalCount = $data['total_count'] ?? count($customers);
+$flash = $data['flash'] ?? null;
+$currentUrl = 'customer/index';
+
+$zeroBalance = 0;
+foreach ($customers as $c) {
+    if ($c->balance <= 0) $zeroBalance++;
+}
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,7 +25,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         /* ==========================================
-           متغيرات CSS الأساس (مشتركة - لا تنسخ هذا في ملفات أخرى)
+           المتغيرات الأساسية (مشتركة)
            ========================================== */
         :root {
             --primary: #14b8a6;
@@ -47,11 +51,13 @@
             --border: #e2e8f0;
             --radius: 14px;
             --radius-sm: 10px;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-            --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
         }
 
-        *, *::before, *::after {
+        *,
+        *::before,
+        *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -64,9 +70,7 @@
             min-height: 100vh;
         }
 
-        /* ==========================================
-           الشريط الجانبي (Sidebar)
-           ========================================== */
+        /* القائمة الجانبية */
         .sidebar {
             position: fixed;
             top: 0;
@@ -100,7 +104,6 @@
             font-size: 18px;
             color: #fff;
             flex-shrink: 0;
-            box-shadow: 0 4px 15px rgba(20, 184, 166, 0.25);
         }
 
         .sidebar-brand .s-text {
@@ -112,17 +115,10 @@
             font-size: 17px;
             font-weight: 800;
             color: #f8fafc;
-            letter-spacing: -0.3px;
         }
 
         .sidebar-brand .s-name span {
             color: var(--primary);
-        }
-
-        .sidebar-brand .s-ver {
-            font-size: 10px;
-            color: var(--text-muted);
-            margin-top: -2px;
         }
 
         .sidebar-nav {
@@ -138,10 +134,6 @@
             text-transform: uppercase;
             letter-spacing: 1.5px;
             padding: 12px 14px 8px;
-        }
-
-        .nav-item {
-            margin-bottom: 2px;
         }
 
         .nav-link {
@@ -162,7 +154,6 @@
             width: 20px;
             text-align: center;
             font-size: 15px;
-            transition: color 0.2s;
         }
 
         .nav-link:hover {
@@ -186,18 +177,6 @@
             height: 24px;
             background: var(--primary);
             border-radius: 0 4px 4px 0;
-        }
-
-        .nav-badge {
-            margin-right: auto;
-            background: var(--accent);
-            color: #fff;
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 10px;
-            min-width: 22px;
-            text-align: center;
         }
 
         .sidebar-user {
@@ -231,9 +210,6 @@
             font-size: 13px;
             font-weight: 600;
             color: #e2e8f0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .sidebar-user .su-role {
@@ -248,6 +224,7 @@
             border-radius: 8px;
             transition: all 0.2s;
             text-decoration: none;
+            margin-right: auto;
         }
 
         .sidebar-user .su-logout:hover {
@@ -255,9 +232,7 @@
             background: rgba(239, 68, 68, 0.1);
         }
 
-        /* ==========================================
-           المحتوى الرئيسي
-           ========================================== */
+        /* المحتوى الرئيسي */
         .main-content {
             margin-right: var(--sidebar-w);
             min-height: 100vh;
@@ -302,33 +277,6 @@
             color: var(--primary);
         }
 
-        .topbar-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .topbar-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text-body);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 15px;
-        }
-
-        .topbar-btn:hover {
-            background: var(--page-bg);
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
         .mobile-menu-btn {
             display: none;
         }
@@ -337,9 +285,18 @@
             padding: 28px 32px 40px;
         }
 
-        /* ==========================================
-           رسائل التنبيه (Flash Messages)
-           ========================================== */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .flash-msg {
             padding: 14px 20px;
             border-radius: var(--radius-sm);
@@ -349,13 +306,8 @@
             font-size: 13px;
             font-weight: 600;
             margin-bottom: 24px;
-            animation: slideDown 0.4s ease both;
+            animation: fadeUp 0.4s ease both;
             border: 1px solid transparent;
-        }
-
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-12px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         .flash-msg.flash-success {
@@ -376,13 +328,7 @@
             border-color: #fde68a;
         }
 
-        .flash-msg i {
-            font-size: 16px;
-        }
-
-        /* ==========================================
-           بطاقات الملخص (Summary Cards)
-           ========================================== */
+        /* بطاقات الملخص */
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -440,9 +386,7 @@
             margin-right: 2px;
         }
 
-        /* ==========================================
-           شريط الأدوات (Toolbar)
-           ========================================== */
+        /* أدوات الصفحة (Toolbar و الفلتر) */
         .toolbar {
             display: flex;
             align-items: center;
@@ -553,9 +497,7 @@
             font-weight: 700;
         }
 
-        /* ==========================================
-           جدول العملاء
-           ========================================== */
+        /* الجدول */
         .table-card {
             background: var(--card-bg);
             border-radius: var(--radius);
@@ -604,6 +546,7 @@
             padding: 14px 20px;
             font-size: 13.5px;
             color: var(--text-body);
+            vertical-align: middle;
         }
 
         .cust-cell {
@@ -642,6 +585,7 @@
         .cust-email {
             font-size: 12px;
             color: var(--text-muted);
+            margin-top: 2px;
         }
 
         .badge {
@@ -769,6 +713,7 @@
             margin-bottom: 20px;
         }
 
+        /* المودال */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -799,6 +744,7 @@
                 opacity: 0;
                 transform: scale(0.95) translateY(10px);
             }
+
             to {
                 opacity: 1;
                 transform: scale(1) translateY(0);
@@ -879,43 +825,55 @@
             box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
         }
 
-        @keyframes fadeUp {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(100%);
             }
+
             .sidebar.open {
                 transform: translateX(0);
             }
+
             .main-content {
                 margin-right: 0;
             }
+
             .mobile-menu-btn {
                 display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: transparent;
+                color: var(--text-body);
+                font-size: 16px;
+                cursor: pointer;
             }
+
             .page-body {
                 padding: 20px 16px;
             }
+
             .topbar {
                 padding: 0 16px;
             }
+
             .search-box input {
-                width: 200px;
+                width: 100%;
             }
+
             .toolbar {
                 flex-direction: column;
-                align-items: flex-start;
+                align-items: stretch;
             }
+
+            .toolbar-right {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
             .summary-grid {
                 grid-template-columns: 1fr;
             }
@@ -927,91 +885,79 @@
             inset: 0;
             background: rgba(0, 0, 0, 0.5);
             z-index: 99;
+            backdrop-filter: blur(2px);
         }
 
         .sidebar-overlay.show {
             display: block;
         }
-
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
     </style>
 </head>
+
 <body>
+
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
             <div class="s-logo"><i class="fas fa-cubes"></i></div>
-            <div class="s-text">
-                <span class="s-name">ERP <span>Pro</span></span>
-                <span class="s-ver">v<?php echo APP_VERSION; ?></span>
-            </div>
+            <div class="s-text"><span class="s-name">ERP <span>Pro</span></span></div>
         </div>
-
-        <?php echo Layout::renderSidebar($currentUrl); ?>
-
+        <?php if (class_exists('Layout')) echo Layout::renderSidebar($currentUrl); ?>
         <div class="sidebar-user">
-            <div class="su-avatar"><?php echo Session::getInitials(); ?></div>
+            <div class="su-avatar"><?php echo mb_substr($_SESSION['user_name'] ?? 'م', 0, 2); ?></div>
             <div class="su-info">
-                <div class="su-name"><?php echo Session::getUserName(); ?></div>
-                <div class="su-role"><?php echo Session::getUserRole(); ?></div>
+                <div class="su-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'مدير النظام'); ?></div>
+                <div class="su-role"><?php echo htmlspecialchars($_SESSION['user_role'] ?? 'admin'); ?></div>
             </div>
-            <a href="<?php echo Layout::url('auth/logout'); ?>" class="su-logout" title="تسجيل الخروج">
-                <i class="fas fa-right-from-bracket"></i>
-            </a>
+            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
     <div class="main-content">
-        <?php echo Layout::renderTopbar($pageTitle, [
-            ['label' => 'الرئيسية', 'url' => 'dashboard'],
-            ['label' => 'العملاء', 'url' => 'customer/index'],
-        ]); ?>
-
-        <?php echo Layout::renderFlash(); ?>
+        <header class="topbar">
+            <div style="display:flex;align-items:center;gap:16px;">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="فتح القائمة"><i class="fas fa-bars"></i></button>
+                <div>
+                    <div class="page-title"><?php echo $pageTitle; ?></div>
+                    <div class="breadcrumb">
+                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <i class="fas fa-chevron-left" style="font-size:9px;"></i>
+                        <span>إدارة العملاء</span>
+                    </div>
+                </div>
+            </div>
+        </header>
 
         <div class="page-body">
+
+            <?php if ($flash) : ?>
+                <div class="flash-msg flash-<?php echo $flash['type']; ?>">
+                    <i class="fas fa-<?php echo $flash['type'] === 'success' ? 'circle-check' : ($flash['type'] === 'error' ? 'circle-xmark' : 'triangle-exclamation'); ?>"></i>
+                    <?php echo htmlspecialchars($flash['message']); ?>
+                </div>
+            <?php endif; ?>
+
             <div class="summary-grid">
                 <div class="summary-card">
-                    <div class="sc-icon" style="background:var(--info-light);color:var(--info);">
-                        <i class="fas fa-users"></i>
-                    </div>
+                    <div class="sc-icon" style="background:var(--info-light);color:var(--info);"><i class="fas fa-users"></i></div>
                     <div>
                         <div class="sc-label">إجمالي العملاء</div>
-                        <div class="sc-value"><?php echo number_format($data['total_count'] ?? 0); ?></div>
+                        <div class="sc-value"><?php echo number_format($totalCount); ?></div>
                     </div>
                 </div>
                 <div class="summary-card">
-                    <div class="sc-icon" style="background:var(--danger-light);color:var(--danger);">
-                        <i class="fas fa-hand-holding-dollar"></i>
-                    </div>
+                    <div class="sc-icon" style="background:var(--danger-light);color:var(--danger);"><i class="fas fa-hand-holding-dollar"></i></div>
                     <div>
                         <div class="sc-label">إجمالي الذمم المدينة</div>
-                        <div class="sc-value" style="color:var(--danger);">
-                            <?php echo Helpers::formatMoney($totalReceivables); ?>
-                        </div>
+                        <div class="sc-value" style="color:var(--danger);"><?php echo number_format($totalReceivables, 2); ?> <span class="sc-unit">ر.س</span></div>
                     </div>
                 </div>
                 <div class="summary-card">
-                    <div class="sc-icon" style="background:var(--success-light);color:var(--success);">
-                        <i class="fas fa-user-check"></i>
-                    </div>
+                    <div class="sc-icon" style="background:var(--success-light);color:var(--success);"><i class="fas fa-user-check"></i></div>
                     <div>
                         <div class="sc-label">عملاء بدون مديونية</div>
-                        <div class="sc-value" style="color:var(--success);">
-                            <?php 
-                            $zeroBalance = 0;
-                            foreach($customers as $c) {
-                                if($c->balance <= 0) $zeroBalance++;
-                            }
-                            echo $zeroBalance;
-                            ?>
-                        </div>
+                        <div class="sc-value" style="color:var(--success);"><?php echo $zeroBalance; ?></div>
                     </div>
                 </div>
             </div>
@@ -1019,27 +965,18 @@
             <div class="toolbar">
                 <div class="toolbar-right">
                     <div class="search-box">
-                        <input type="text" id="searchInput" 
-                               placeholder="ابحث بالاسم أو الهاتف..." 
-                               value="<?php echo Helpers::e($search); ?>"
-                               autocomplete="off">
+                        <input type="text" id="searchInput" placeholder="ابحث بالاسم أو الهاتف..." value="<?php echo htmlspecialchars($search); ?>" autocomplete="off">
                         <i class="fas fa-search"></i>
                     </div>
-                    <button class="filter-chip <?php echo $filter === 'all' ? 'active' : ''; ?>" data-filter="all">الكل</button>
-                    <button class="filter-chip <?php echo $filter === 'individual' ? 'active' : ''; ?>" data-filter="individual">
-                        <i class="fas fa-user" style="margin-left:4px;font-size:11px;"></i> أفراد
-                    </button>
-                    <button class="filter-chip <?php echo $filter === 'company' ? 'active' : ''; ?>" data-filter="company">
-                        <i class="fas fa-building" style="margin-left:4px;font-size:11px;"></i> شركات
-                    </button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="filter-chip <?php echo $filter === 'all' ? 'active' : ''; ?>" data-filter="all">الكل</button>
+                        <button class="filter-chip <?php echo $filter === 'individual' ? 'active' : ''; ?>" data-filter="individual"><i class="fas fa-user" style="margin-left:4px;font-size:11px;"></i> أفراد</button>
+                        <button class="filter-chip <?php echo $filter === 'company' ? 'active' : ''; ?>" data-filter="company"><i class="fas fa-building" style="margin-left:4px;font-size:11px;"></i> شركات</button>
+                    </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:14px;">
-                    <span class="result-count">
-                        عرض 
-                        <strong id="visibleCount"><?php echo count($customers); ?></strong> 
-                        عميل
-                    </span>
-                    <a href="<?php echo Layout::url('customer/create'); ?>" class="btn-add">
+                    <span class="result-count">عرض <strong id="visibleCount"><?php echo count($customers); ?></strong> عميل</span>
+                    <a href="<?php echo URL_ROOT; ?>/customer/create" class="btn-add">
                         <i class="fas fa-plus"></i> إضافة عميل
                     </a>
                 </div>
@@ -1047,7 +984,7 @@
 
             <div class="table-card">
                 <div class="table-wrap">
-                    <table id="custTable">
+                    <table>
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -1056,96 +993,83 @@
                                 <th>الهاتف</th>
                                 <th>الرصيد المدين</th>
                                 <th>إجمالي المشتريات</th>
-                                <th>الفواتير</th>
+                                <th style="text-align:center;">الفواتير</th>
                                 <th>الإجراءات</th>
                             </tr>
                         </thead>
                         <tbody id="custBody">
                             <?php foreach ($customers as $c) :
-                                $balClass = $c->balance > 0 ? 'negative' : ($c->balance < 0 ? 'positive' : 'zero');
                                 $avClass = $c->type === 'company' ? 'av-company' : 'av-individual';
+                                $initials = mb_substr($c->name ?? 'ع', 0, 2);
                             ?>
-                            <tr class="cust-row" data-type="<?php echo $c->type; ?>" data-search="<?php echo Helpers::e($c->name . ' ' . ($c->phone ?? '')); ?>">
-                                <td style="color:var(--text-muted);font-weight:600;font-size:12px;">
-                                    <?php echo $c->id; ?>
-                                </td>
-                                <td>
-                                    <div class="cust-cell">
-                                        <div class="cust-avatar <?php echo $avClass; ?>">
-                                            <?php echo Helpers::getInitials($c->name); ?>
-                                        </div>
-                                        <div>
-                                            <div class="cust-name">
-                                                <a href="<?php echo Layout::url('customer/view/' . $c->id); ?>" style="color:inherit;text-decoration:none;">
-                                                    <?php echo Helpers::e($c->name); ?>
-                                                </a>
+                                <tr class="cust-row" data-type="<?php echo $c->type; ?>" data-search="<?php echo htmlspecialchars($c->name . ' ' . ($c->phone ?? '')); ?>">
+                                    <td style="color:var(--text-muted);font-weight:600;font-size:12px;"><?php echo $c->id; ?></td>
+                                    <td>
+                                        <div class="cust-cell">
+                                            <div class="cust-avatar <?php echo $avClass; ?>"><?php echo $initials; ?></div>
+                                            <div>
+                                                <div class="cust-name">
+                                                    <a href="<?php echo URL_ROOT; ?>/customer/view/<?php echo $c->id; ?>" style="color:inherit;text-decoration:none;">
+                                                        <?php echo htmlspecialchars($c->name); ?>
+                                                    </a>
+                                                </div>
+                                                <div class="cust-email"><?php echo htmlspecialchars($c->email ?? '—'); ?></div>
                                             </div>
-                                            <div class="cust-email"><?php echo Helpers::e($c->email ?? '—'); ?></div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="badge badge-<?php echo $c->type; ?>">
-                                        <i class="fas fa-<?php echo $c->type === 'company' ? 'building' : 'user'; ?>"></i> 
-                                        <?php echo Helpers::getTypeLabel($c->type); ?>
-                                    </span>
-                                </td>
-                                <td style="direction:ltr;text-align:right;">
-                                    <?php echo Helpers::e($c->phone ?? '—'); ?>
-                                </td>
-                                <td>
-                                    <?php if ($c->balance > 0) : ?>
-                                        <span class="balance-val negative"><?php echo Helpers::formatMoney($c->balance); ?></span>
-                                    <?php elseif ($c->balance < 0) : ?>
-                                        <span class="balance-val positive"><?php echo Helpers::formatMoney(abs($c->balance)); ?> (دائن لنا)</span>
-                                    <?php else : ?>
-                                        <span class="balance-val zero">0.00 ر.س</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="purchases-val"><?php echo Helpers::formatMoney($c->total_purchases ?? 0); ?></span>
-                                </td>
-                                <td style="text-align:center;font-weight:600;color:var(--text-dark);">
-                                    <?php echo (int)($c->invoice_count ?? 0); ?>
-                                </td>
-                                <td>
-                                    <div class="actions-cell">
-                                        <a href="<?php echo Layout::url('customer/view/' . $c->id); ?>" class="act-btn btn-view" title="عرض">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        <a href="<?php echo Layout::url('customer/edit/' . $c->id); ?>" class="act-btn btn-edit" title="تعديل">
-                                            <i class="fas fa-pen-to-square"></i>
-                                        </a>
-                                        <button class="act-btn btn-del" title="حذف" 
-                                                onclick="openDeleteModal(<?php echo $c->id; ?>, '<?php echo Helpers::e(addslashes($c->name)); ?>', <?php echo $c->balance; ?>)">
-                                            <i class="fas fa-trash-can"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-<?php echo $c->type; ?>">
+                                            <i class="fas fa-<?php echo $c->type === 'company' ? 'building' : 'user'; ?>"></i>
+                                            <?php echo $c->type === 'company' ? 'شركة' : 'فرد'; ?>
+                                        </span>
+                                    </td>
+                                    <td style="direction:ltr;text-align:right;"><?php echo htmlspecialchars($c->phone ?? '—'); ?></td>
+                                    <td>
+                                        <?php if ($c->balance > 0) : ?>
+                                            <span class="balance-val negative"><?php echo number_format($c->balance, 2); ?> ر.س</span>
+                                        <?php elseif ($c->balance < 0) : ?>
+                                            <span class="balance-val positive"><?php echo number_format(abs($c->balance), 2); ?> (دائن لنا)</span>
+                                        <?php else : ?>
+                                            <span class="balance-val zero">0.00 ر.س</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><span class="purchases-val"><?php echo number_format($c->total_purchases ?? 0, 2); ?> ر.س</span></td>
+                                    <td style="text-align:center;font-weight:600;color:var(--text-dark);"><?php echo (int)($c->invoice_count ?? 0); ?></td>
+                                    <td>
+                                        <div class="actions-cell">
+                                            <a href="<?php echo URL_ROOT; ?>/customer/view/<?php echo $c->id; ?>" class="act-btn btn-view" title="عرض"><i class="fas fa-eye"></i></a>
+                                            <a href="<?php echo URL_ROOT; ?>/customer/edit/<?php echo $c->id; ?>" class="act-btn btn-edit" title="تعديل"><i class="fas fa-pen-to-square"></i></a>
+                                            <button class="act-btn btn-del" title="حذف" onclick="openDeleteModal(<?php echo $c->id; ?>, '<?php echo htmlspecialchars(addslashes($c->name)); ?>', <?php echo $c->balance; ?>)">
+                                                <i class="fas fa-trash-can"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
                             <?php endforeach; ?>
 
                             <?php if (empty($customers)) : ?>
-                            <tr>
-                                <td colspan="8">
-                                    <div class="empty-state">
-                                        <i class="fas fa-users-slash"></i>
-                                        <h4>لا يوجد عملاء مسجلين</h4>
-                                        <p>ابدأ بإضافة أول عميل إلى قاعدة البيانات</p>
-                                        <a href="<?php echo Layout::url('customer/create'); ?>" class="btn-add" style="display:inline-flex;">
-                                            <i class="fas fa-plus"></i> إضافة عميل
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="empty-state">
+                                            <i class="fas fa-users-slash"></i>
+                                            <h4>لا يوجد عملاء مسجلين</h4>
+                                            <p>ابدأ بإضافة أول عميل إلى قاعدة البيانات</p>
+                                            <a href="<?php echo URL_ROOT; ?>/customer/create" class="btn-add" style="display:inline-flex;">
+                                                <i class="fas fa-plus"></i> إضافة عميل
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
             </div>
+
         </div>
     </div>
 
+    <!-- مودال الحذف -->
     <div class="modal-overlay" id="deleteModal">
         <div class="modal-box">
             <div class="modal-header">
@@ -1153,8 +1077,7 @@
                 <h3>تأكيد حذف العميل</h3>
                 <p>هل أنت متأكد من حذف العميل "<strong id="delCustName"></strong>"؟</p>
                 <p id="balanceWarning" style="color:var(--danger);font-weight:600;font-size:12px;margin-top:8px;display:none;">
-                    <i class="fas fa-exclamation-triangle"></i> 
-                    تحذير: العميل لديه رصيد مدين
+                    <i class="fas fa-exclamation-triangle"></i> تحذير: العميل لديه رصيد مدين
                 </p>
             </div>
             <div class="modal-footer">
@@ -1167,6 +1090,7 @@
     </div>
 
     <script>
+        // البحث الحي
         const searchInput = document.getElementById('searchInput');
         const rows = document.querySelectorAll('.cust-row');
         const visibleCount = document.getElementById('visibleCount');
@@ -1174,22 +1098,21 @@
         searchInput.addEventListener('input', function() {
             const q = this.value.trim().toLowerCase();
             let count = 0;
-            
             rows.forEach(row => {
                 const text = (row.getAttribute('data-search') || '').toLowerCase();
                 const match = text.includes(q);
                 row.style.display = match ? '' : 'none';
                 if (match) count++;
             });
-            
             visibleCount.textContent = count;
         });
 
+        // الفلترة بالنوع
         document.querySelectorAll('.filter-chip').forEach(chip => {
             chip.addEventListener('click', function() {
                 document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
                 this.classList.add('active');
-                
+
                 let count = 0;
                 rows.forEach(row => {
                     const show = this.dataset.filter === 'all' || row.dataset.type === this.dataset.filter;
@@ -1200,6 +1123,7 @@
             });
         });
 
+        // مودال الحذف
         const deleteModal = document.getElementById('deleteModal');
         const deleteForm = document.getElementById('deleteForm');
         const delCustName = document.getElementById('delCustName');
@@ -1207,16 +1131,19 @@
 
         function openDeleteModal(id, name, balance) {
             delCustName.textContent = name;
-            
+
             if (balance > 0) {
                 balanceWarning.style.display = 'block';
-                balanceWarning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> تحذير: العميل لديه رصيد مدين بقيمة ' + 
-                    balance.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ر.س';
+                balanceWarning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> تحذير: العميل لديه رصيد مدين بقيمة ' +
+                    balance.toLocaleString('ar-SA', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }) + ' ر.س';
             } else {
                 balanceWarning.style.display = 'none';
             }
-            
-            deleteForm.action = '<?php echo Layout::url("customer/delete"); ?>/' + id;
+
+            deleteForm.action = '<?php echo URL_ROOT; ?>/customer/delete/' + id;
             deleteModal.classList.add('show');
             document.body.style.overflow = 'hidden';
         }
@@ -1229,35 +1156,27 @@
         deleteModal.addEventListener('click', function(e) {
             if (e.target === this) closeDeleteModal();
         });
-
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') closeDeleteModal();
         });
 
+        // القائمة الجانبية للموبايل
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
         const menuBtn = document.getElementById('mobileMenuBtn');
-
         if (menuBtn) {
             menuBtn.addEventListener('click', () => {
                 sidebar.classList.toggle('open');
                 overlay.classList.toggle('show');
             });
         }
-
         if (overlay) {
             overlay.addEventListener('click', () => {
                 sidebar.classList.remove('open');
                 overlay.classList.remove('show');
             });
         }
-
-        window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('show');
-            }
-        });
     </script>
 </body>
+
 </html>

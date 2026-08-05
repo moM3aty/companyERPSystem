@@ -1,138 +1,73 @@
 <?php
-// app/controllers/AccountingController.php
+// المسار: app/controllers/AccountingController.php
 
 class AccountingController extends Controller {
-    
+
     public function __construct() {
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: ' . URL_ROOT . '/auth/login');
-            exit();
-        }
-    }
-
-    private function setFlash($type, $message) {
-        $_SESSION['flash'] = [
-            'type'    => $type,
-            'message' => $message
-        ];
-    }
-
-    private function getFlash() {
-        if (isset($_SESSION['flash'])) {
-            $flash = $_SESSION['flash'];
-            unset($_SESSION['flash']);
-            return $flash;
-        }
-        return null;
+        // حماية الوصول للقسم المالي
+        $this->requireAnyRole(['admin', 'editor', 'manager']);
     }
 
     /**
-     * الصفحة الرئيسية للمحاسبة
+     * عرض اللوحة الرئيسية للمحاسبة (Dashboard)
      */
-    public function index() {
-        $accountingModel = $this->model('Accounting');
+    public function dashboard(): void {
+        $db = Database::getInstance();
 
-        // ========================================
-        // 1) حذف مصروف (POST مع ?delete=ID)
-        // ========================================
-        if (isset($_GET['delete']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
-            $id = (int) $_GET['delete'];
+        // 1. حساب إجمالي الأصول (Assets)
+        $db->query("SELECT SUM(balance) as total FROM chart_of_accounts WHERE type = 'asset'");
+        $assets = (float)($db->single()->total ?? 0);
 
-            if ($id > 0) {
-                $expense = $accountingModel->getExpenseById($id);
-                if ($expense) {
-                    if ($accountingModel->deleteExpense($id)) {
-                        $this->setFlash('success', 'تم حذف المصروف "' . $expense->description . '" بنجاح');
-                    } else {
-                        $this->setFlash('error', 'حدث خطأ في قاعدة البيانات أثناء الحذف');
-                    }
-                } else {
-                    $this->setFlash('warning', 'المصروف المطلوب غير موجود');
-                }
-            } else {
-                $this->setFlash('error', 'معرّف المصروف غير صالح');
-            }
+        // 2. حساب إجمالي الخصوم (Liabilities)
+        $db->query("SELECT SUM(balance) as total FROM chart_of_accounts WHERE type = 'liability'");
+        $liabilities = (float)($db->single()->total ?? 0);
 
-            header('Location: ' . URL_ROOT . '/accounting/index');
-            exit();
-        }
+        // 3. حساب صافي الدخل التقريبي (الإيرادات - المصروفات)
+        $db->query("SELECT SUM(balance) as total FROM chart_of_accounts WHERE type = 'revenue'");
+        $revenues = (float)($db->single()->total ?? 0);
+        
+        $db->query("SELECT SUM(balance) as total FROM chart_of_accounts WHERE type = 'expense'");
+        $expenses = (float)($db->single()->total ?? 0);
+        
+        $netIncome = $revenues - $expenses;
 
-        // ========================================
-        // 2) إضافة مصروف جديد (POST)
-        // ========================================
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_GET['delete'])) {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-
-            $description = trim($_POST['description'] ?? '');
-            $amount      = trim($_POST['amount'] ?? '');
-            $category    = trim($_POST['category'] ?? 'أخرى');
-
-            $errors = [];
-
-            if (empty($description)) {
-                $errors[] = 'بيان المصروف مطلوب';
-            } elseif (mb_strlen($description) > 255) {
-                $errors[] = 'بيان المصروف طويل جداً (أقصى 255 حرف)';
-            }
-
-            if (empty($amount) || !is_numeric($amount)) {
-                $errors[] = 'يرجى إدخال مبلغ صحيح';
-            } elseif (floatval($amount) <= 0) {
-                $errors[] = 'المبلغ يجب أن يكون أكبر من صفر';
-            } elseif (floatval($amount) > 99999999.99) {
-                $errors[] = 'المبلغ يتجاوز الحد المسموح';
-            }
-
-            // القوائم المسموحة
-            $allowedCategories = ['تشغيلية', 'رواتب', 'إيجار', 'كهرباء وماء', 'صيانة', 'تسويق', 'نقل وشحن', 'أخرى'];
-            if (!in_array($category, $allowedCategories)) {
-                $category = 'أخرى';
-            }
-
-            if (empty($errors)) {
-                $data = [
-                    'description' => $description,
-                    'amount'      => floatval($amount),
-                    'category'    => $category
-                ];
-
-                if ($accountingModel->addExpense($data)) {
-                    $this->setFlash('success', 'تم تسجيل المصروف "' . $description . '" بقيمة ' . number_format($data['amount'], 2) . ' ر.س');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء حفظ المصروف في قاعدة البيانات');
-                }
-            } else {
-                $this->setFlash('error', implode(' | ', $errors));
-            }
-
-            header('Location: ' . URL_ROOT . '/accounting/index');
-            exit();
-        }
-
-        // ========================================
-        // 3) عرض القائمة مع البحث (GET)
-        // ========================================
-        $search = trim($_GET['search'] ?? '');
-
-        if (!empty($search)) {
-            $expenses = $accountingModel->searchExpenses($search);
-        } else {
-            $expenses = $accountingModel->getExpenses();
-        }
-
-        $totalSales   = $accountingModel->getTotalSales();
-        $totalExpenses = $accountingModel->getTotalExpenses();
+        // 4. جلب أحدث القيود
+        $db->query("SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT 5");
+        $recentEntries = $db->resultSet();
 
         $data = [
-            'title'         => 'المحاسبة والأرباح',
-            'expenses'      => $expenses,
-            'total_sales'   => $totalSales,
-            'total_expenses' => $totalExpenses,
-            'net_profit'    => $totalSales - $totalExpenses,
-            'search'        => $search,
-            'flash'         => $this->getFlash()
+            'title' => 'الإدارة المالية والمحاسبة',
+            'stats' => [
+                'total_assets' => $assets,
+                'total_liabilities' => $liabilities,
+                'net_income' => $netIncome
+            ],
+            'recent_entries' => $recentEntries
         ];
 
-        $this->view('accounting/index', $data);
+        $this->view('accounting/dashboard', $data);
+    }
+
+    /**
+     * عرض تقرير قائمة الدخل (Income Statement)
+     */
+    public function incomeStatement(): void {
+        $db = Database::getInstance();
+
+        // جلب حسابات الإيرادات التي لها رصيد
+        $db->query("SELECT code, name, balance FROM chart_of_accounts WHERE type = 'revenue' AND balance > 0 ORDER BY code ASC");
+        $revenues = $db->resultSet();
+
+        // جلب حسابات المصروفات التي لها رصيد
+        $db->query("SELECT code, name, balance FROM chart_of_accounts WHERE type = 'expense' AND balance > 0 ORDER BY code ASC");
+        $expenses = $db->resultSet();
+
+        $data = [
+            'title' => 'قائمة الدخل',
+            'revenues' => $revenues,
+            'expenses' => $expenses
+        ];
+
+        $this->view('accounting/income_statement', $data);
     }
 }

@@ -7,7 +7,7 @@
 class Helpers {
     
     /**
-     * تنسيق النص للعرض الآمن
+     * تنسيق النص للعرض الآمن (منع ثغرات XSS)
      */
     public static function e(string $string): string {
         return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
@@ -68,7 +68,7 @@ class Helpers {
     }
     
     /**
-     * تنسيق الفرق الزمني (منذ)
+     * تنسيق الفرق الزمني (منذ) مع إصلاح خطأ التركيب اللغوي (Syntax Error)
      */
     public static function timeAgo(string $date): string {
         $timestamp = strtotime($date);
@@ -79,19 +79,20 @@ class Helpers {
         }
         
         $intervals = [
-            12 * 30 * 24 * 365 => ['سنة', 'سنوات'],
-            30 * 24 * 60      => ['شهر', 'أشهر'],
-            7 * 24 * 60          => ['أسبوع', 'أسابيع'],
-            24 * 60               => ['يوم', 'أيام'],
-            60                    => ['دقيقة', 'دقائق'],
+            12 * 30 * 24 * 60 * 60 => ['سنة', 'سنوات'],
+            30 * 24 * 60 * 60      => ['شهر', 'أشهر'],
+            7 * 24 * 60 * 60       => ['أسبوع', 'أسابيع'],
+            24 * 60 * 60           => ['يوم', 'أيام'],
+            60 * 60                => ['ساعة', 'ساعات'],
+            60                     => ['دقيقة', 'دقائق'],
         ];
         
         foreach ($intervals as $seconds => $labels) {
             $count = floor($diff / $seconds);
             if ($count >= 1) {
-                $singular = $labels[0];
-                $plural = $labels[1];
-                return "منذ {$count} {$count == 1 ? $singular : $plural}";
+                // إخراج المعامل المنطقي من النص لتجنب خطأ التفسير في PHP
+                $word = ($count == 1 || $count == 2) ? $labels[0] : $labels[1];
+                return "منذ " . $count . " " . $word;
             }
         }
         
@@ -105,7 +106,7 @@ class Helpers {
         $prefix = 'INV';
         $date = date('Ymd');
         $time = date('His');
-        $random = str_pad(random_int(100, 999), 3, '0', STR_PAD_LEFT);
+        $random = str_pad((string)random_int(100, 999), 3, '0', STR_PAD_LEFT);
         return "{$prefix}-{$date}-{$time}-{$random}";
     }
     
@@ -114,7 +115,7 @@ class Helpers {
      */
     public static function generateSku(string $prefix = 'PRD'): string {
         $date = date('ymd');
-        $random = str_pad(random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+        $random = str_pad((string)random_int(1, 9999), 4, '0', STR_PAD_LEFT);
         return "{$prefix}-{$date}-{$random}";
     }
     
@@ -122,7 +123,6 @@ class Helpers {
      * تحديد نوع العميل بالعربية
      */
     public static function getTypeLabel(string $type): string {
-        // استخدم switch بدلاً من match لتوافق PHP 7
         switch ($type) {
             case 'individual': return 'فرد';
             case 'company': return 'شركة';
@@ -282,7 +282,6 @@ class Helpers {
             if (mb_strlen($initials) >= 2) break;
         }
         
-        // إذا كان الاسم مكونًا من كلمة واحدة، خذ أول حرفين منها
         if (mb_strlen($initials) < 2) {
             $initials = mb_substr($name, 0, 2);
         }

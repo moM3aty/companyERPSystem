@@ -1,4 +1,5 @@
 <?php
+// app/views/project/create.php
 $flash = $data['flash'] ?? null;
 $customers = $data['customers'] ?? [];
 $employees = $data['employees'] ?? [];

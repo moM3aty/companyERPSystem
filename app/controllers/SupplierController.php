@@ -3,56 +3,33 @@
 
 class SupplierController extends Controller {
     
+    /** @var Supplier كائن المودل */
+    private Supplier $supplierModel;
+
     public function __construct() {
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: ' . URL_ROOT . '/auth/login');
-            exit();
-        }
-    }
-
-    private function setFlash($type, $message) {
-        $_SESSION['flash'] = ['type' => $type, 'message' => $message];
-    }
-
-    private function getFlash() {
-        if (isset($_SESSION['flash'])) {
-            $flash = $_SESSION['flash'];
-            unset($_SESSION['flash']);
-            return $flash;
-        }
-        return null;
+        // حماية الوصول
+        $this->requireAuth();
+        $this->supplierModel = $this->model('Supplier');
     }
 
     /**
-     * قائمة الموردين مع البحث والفلترة
+     * عرض الصفحة الرئيسية للموردين
      */
-    public function index() {
-        $supplierModel = $this->model('Supplier');
+    public function index(): void {
+        $search = $this->getQuery('search', '');
+        $filter = $this->getQuery('filter', 'all');
 
-        $search = trim($_GET['search'] ?? '');
-        $filter = trim($_GET['filter'] ?? 'all');
-
-        if (!empty($search)) {
-            $suppliers = $supplierModel->searchSuppliers($search);
-        } else {
-            $suppliers = $supplierModel->getSuppliers();
-        }
-
-        // تصفية حسب النوع
-        if ($filter === 'company') {
-            $suppliers = array_filter($suppliers, function($s) { return $s->type === 'company'; });
-        } elseif ($filter === 'individual') {
-            $suppliers = array_filter($suppliers, function($s) { return $s->type === 'individual'; });
-        }
+        $suppliers = $this->supplierModel->getFilteredSuppliers($search, $filter);
+        $totalPayables = $this->supplierModel->getTotalPayables();
 
         $data = [
-            'title'             => 'إدارة الموردين',
-            'suppliers'         => $suppliers,
-            'search'            => $search,
-            'filter'           => $filter,
-            'total_count'       => $supplierModel->getSupplierCount(),
-            'total_payables'     => $supplierModel->getTotalPayables(),
-            'flash'            => $this->getFlash()
+            'title'          => 'إدارة الموردين',
+            'suppliers'      => $suppliers,
+            'search'         => $search,
+            'filter'         => $filter,
+            'total_payables' => $totalPayables,
+            'total_count'    => count($suppliers),
+            'flash'          => $this->getFlash()
         ];
 
         $this->view('suppliers/index', $data);
@@ -61,238 +38,157 @@ class SupplierController extends Controller {
     /**
      * إضافة مورد جديد
      */
-    public function create() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    public function create(): void {
+        if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 
             $data = [
-                'name'         => trim($_POST['name'] ?? ''),
+                'name'           => trim($_POST['name'] ?? ''),
                 'contact_person' => trim($_POST['contact_person'] ?? ''),
-                'phone'        => trim($_POST['phone'] ?? ''),
-                'email'        => trim($_POST['email'] ?? ''),
-                'address'      => trim($_POST['address'] ?? ''),
-                'balance'      => 0,
-                'notes'        => trim($_POST['notes'] ?? ''),
-                'type'         => trim($_POST['type'] ?? 'company')
+                'phone'          => trim($_POST['phone'] ?? ''),
+                'email'          => trim($_POST['email'] ?? ''),
+                'address'        => trim($_POST['address'] ?? ''),
+                'balance'        => (float)($_POST['balance'] ?? 0.0),
+                'notes'          => trim($_POST['notes'] ?? ''),
+                'type'           => in_array($_POST['type'] ?? '', ['company', 'individual']) ? $_POST['type'] : 'company'
             ];
 
-            // === التحقق ===
-            $errors = [];
-
             if (empty($data['name'])) {
-                $errors[] = 'اسم المورد مطلوب (3 أحرف على الأقل)';
+                $this->setFlash('error', 'اسم المورد مطلوب الأساسي لا يمكن أن يكون فارغاً.');
+                $this->redirect('supplier/create');
             }
 
-            if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'صيغة البريد الإلكتروني غير صحيحة';
-            }
-
-            if (empty($errors)) {
-                $supplierModel = $this->model('Supplier');
-                if ($supplierModel->addSupplier($data)) {
-                    $this->setFlash('success', 'تم إضافة المورد "' . $data['name'] . '" بنجاح');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء حفظ البيانات');
-                }
+            if ($this->supplierModel->create($data)) {
+                $this->setFlash('success', 'تم تسجيل المورد الجديد بنجاح في المنظومة.');
+                $this->redirect('supplier/index');
             } else {
-                $this->setFlash('error', implode(' | ', $errors));
+                $this->setFlash('error', 'حدث خطأ غير متوقع أثناء حفظ البيانات.');
+                $this->redirect('supplier/create');
             }
-
-            header('Location: ' . URL_ROOT . '/supplier/create');
-            exit();
+        } else {
+            $data = [
+                'title' => 'إضافة مورد جديد',
+                'flash' => $this->getFlash()
+            ];
+            $this->view('suppliers/create', $data);
         }
-
-        $data = [
-            'title' => 'إضافة مورد جديد',
-            'flash' => $this->getFlash()
-        ];
-
-        $this->view('suppliers/create', $data);
     }
 
     /**
-     * تعديل مورد
+     * تعديل بيانات مورد موجود
+     * 
+     * @param string $id معرف المورد
      */
-    public function edit($id) {
-        $supplierModel = $this->model('Supplier');
-        $supplier = $supplierModel->getSupplierById($id);
+    public function edit(string $id = ''): void {
+        if (empty($id) || !is_numeric($id)) {
+            $this->setFlash('error', 'معرف المورد غير صالح.');
+            $this->redirect('supplier/index');
+        }
+
+        $supplierId = (int)$id;
+        $supplier = $this->supplierModel->findById($supplierId);
 
         if (!$supplier) {
-            $this->setFlash('warning', 'المورد المطلوب غير موجود');
-            header('Location: ' . URL_ROOT . '/supplier/index');
-            exit();
+            $this->setFlash('error', 'لم يتم العثور على المورد المطلوب.');
+            $this->redirect('supplier/index');
         }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 
-            $data = [
-                'name'         => trim($_POST['name'] ?? ''),
+            $updateData = [
+                'name'           => trim($_POST['name'] ?? ''),
                 'contact_person' => trim($_POST['contact_person'] ?? ''),
-                'phone'        => trim($_POST['phone'] ?? ''),
-                'email'        => trim($_POST['email'] ?? ''),
-                'address'      => trim($_POST['address'] ?? ''),
-                'notes'        => trim($_POST['notes'] ?? ''),
-                'type'         => trim($_POST['type'] ?? 'company')
+                'phone'          => trim($_POST['phone'] ?? ''),
+                'email'          => trim($_POST['email'] ?? ''),
+                'address'        => trim($_POST['address'] ?? ''),
+                'notes'          => trim($_POST['notes'] ?? ''),
+                'type'           => in_array($_POST['type'] ?? '', ['company', 'individual']) ? $_POST['type'] : 'company'
+                // لا نسمح بتعديل الرصيد من هذه الواجهة لضمان الشفافية المالية (يجب أن يتم عبر المدفوعات أو الفواتير)
             ];
 
-            $errors = [];
-
-            if (empty($data['name'])) {
-                $errors[] = 'اسم المورد مطلوب (3 أحرف على الأقل)';
+            if (empty($updateData['name'])) {
+                $this->setFlash('error', 'يرجى تعبئة اسم المورد.');
+                $this->redirect('supplier/edit/' . $supplierId);
             }
 
-            if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'صيغة البريد غير صحيحة';
-            }
-
-            if (empty($errors)) {
-                if ($supplierModel->updateSupplier($data, $id)) {
-                    $this->setFlash('success', 'تم تحديث بيانات المورد "' . $data['name'] . '" بنجاح');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء التحديث');
-                }
+            if ($this->supplierModel->update($supplierId, $updateData)) {
+                $this->setFlash('success', 'تم تحديث بيانات المورد بنجاح.');
+                $this->redirect('supplier/index');
             } else {
-                $this->setFlash('error', implode(' | ', $errors));
+                $this->setFlash('error', 'فشل في تحديث بيانات المورد.');
+                $this->redirect('supplier/edit/' . $supplierId);
             }
+        } else {
+            $data = [
+                'title'    => 'تعديل مورد',
+                'supplier' => $supplier,
+                'flash'    => $this->getFlash()
+            ];
+            $this->view('suppliers/edit', $data);
+        }
+    }
 
-            header('Location: ' . URL_ROOT . '/supplier/edit/' . $id);
-            exit();
+    /**
+     * عرض ملف المورد (المشتريات، الدفعات، المستحقات)
+     * 
+     * @param string $id معرف المورد
+     */
+    public function show(string $id = ''): void {
+        if (empty($id) || !is_numeric($id)) {
+            $this->redirect('supplier/index');
         }
 
+        $supplierId = (int)$id;
+        $supplier = $this->supplierModel->findById($supplierId);
+
+        if (!$supplier) {
+            $this->setFlash('error', 'المورد المطلوب غير موجود.');
+            $this->redirect('supplier/index');
+        }
+
+        // جلب الإحصائيات (POs, Payments)
+        $purchaseOrders = $this->supplierModel->getPurchaseOrders($supplierId);
+        $payments = $this->supplierModel->getPayments($supplierId);
+        $stats = $this->supplierModel->getSupplierStats($supplierId);
+        
+        // ربط عدد الأوامر بالكائن لعرضها
+        $supplier->po_count = count($purchaseOrders);
+
         $data = [
-            'title'    => 'تعديل بيانات مورد',
-            'supplier' => $supplier,
-            'flash'   => $this->getFlash()
+            'title'          => 'ملف المورد',
+            'supplier'       => $supplier,
+            'purchaseOrders' => $purchaseOrders,
+            'payments'       => $payments,
+            'totalPaid'      => $stats['totalPaid'],
+            'totalPayables'  => $stats['totalPayables'],
+            'outstanding'    => $stats['outstanding'],
+            'flash'          => $this->getFlash()
         ];
 
-        $this->view('suppliers/edit', $data);
+        $this->view('suppliers/view', $data);
     }
 
     /**
      * حذف مورد
+     * 
+     * @param string $id معرف المورد
      */
-    public function delete($id) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ' . URL_ROOT . '/supplier/index');
-            exit();
-        }
-
-        $supplierModel = $this->model('Supplier');
-        $supplier = $supplierModel->getSupplierById($id);
-
-        if (!$supplier) {
-            $this->setFlash('warning', 'المورد غير موجود');
-            header('Location: ' . URL_ROOT . '/supplier/index');
-            exit();
-        }
-
-        // منع حذف مورد لوجود أوامر شراء فعلي
-        $check = $supplierModel->deleteSupplier($id);
-
-        if (!$check) {
-            $this->setFlash('warning', 'لا يمكن حذف المورد "' . $supplier->name . '" — لديه أوامر شراء قيد التنفيذ. قم بإلغاء أوامر الشراء أولاً.');
-        } else {
-            if ($supplierModel->deleteSupplier($id)) {
-                $this->setFlash('success', 'تم حذف المورد "' . $supplier->name . '" بنجاح');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء الحذف');
+    public function delete(string $id = ''): void {
+        if ($this->isPost() && !empty($id) && is_numeric($id)) {
+            $supplierId = (int)$id;
+            
+            try {
+                if ($this->supplierModel->delete($supplierId)) {
+                    $this->setFlash('success', 'تم حذف المورد من سجلات النظام.');
+                } else {
+                    $this->setFlash('error', 'فشل في عملية الحذف.');
+                }
+            } catch (PDOException $e) {
+                // منع الحذف في حال وجود فواتير أو أوامر شراء مرتبطة
+                $this->setFlash('error', 'لا يمكن حذف هذا المورد لوجود أوامر شراء أو مدفوعات مرتبطة به في النظام.');
             }
         }
-
-        header('Location: ' . URL_ROOT . '/supplier/index');
-        exit();
-    }
-
-    /**
-     * بحث AJAX — نقطة نهاية JSON للقوائم المنسدلة في إنشاء الفاتورة
-     */
-    public function search() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            echo json_encode([]);
-            return;
-        }
-
-        $query = trim($_GET['q'] ?? '');
-        if (empty($query) || mb_strlen($query) < 2) {
-            echo json_encode([]);
-            return;
-        }
-
-        $results = $this->model('Supplier')->searchSuppliers($query);
-
-        $output = [];
-        foreach ($results as $s) {
-            $output[] = [
-                'id'    => $s->id,
-                'name'  => $s->name,
-                'phone' => $s->phone,
-                'type'  => $s->type
-            ];
-        }
-
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($output);
-    }
-
-    /**
-     * عرض بيانات المورد (بروفايل)
-     */
-    public function view($id) {
-        $supplierModel = $this->model('Supplier');
-        $supplier = $supplierModel->getSupplierById($id);
-
-        if (!$supplier) {
-            $this->setFlash('warning', 'المورد غير موجود');
-            header('Location: ' . URL_ROOT . '/supplier/index');
-            exit();
-        }
-
-        // جلب أوامر الشراء
-        $db = Database::getInstance();
-        $db->query('
-            SELECT id, po_number, total_amount, status, created_at, notes
-            FROM purchase_orders
-            WHERE supplier_id = :sid
-            ORDER BY id DESC
-        ');
-        $db->bind(':sid', $id, PDO::PARAM_INT);
-        $purchaseOrders = $db->resultSet();
-
-        // جلب المدفوعات
-        $db->query('
-            SELECT p.*
-            FROM payments p
-            WHERE p.reference_type = "purchase_order"
-              AND p.reference_id IN (
-                  SELECT id FROM purchase_orders WHERE supplier_id = :sid
-              )
-            ORDER BY p.created_at DESC
-        ');
-        $db->bind(':sid', $id, PDO::PARAM_INT);
-        $payments = $db->resultSet();
-
-        // حساب الإجمالي المدفوع
-        $totalPaid = 0;
-        foreach ($payments as $p) {
-            $totalPaid += (float) $p->amount;
-        }
-
-        // إجمالي المشتريات (رصيدنا لدى المورد)
-        $totalPayables = $supplierModel->getTotalPayables();
-        $outstanding = max($totalPayables - $totalPaid, 0);
-
-        $data = [
-            'title'        => 'بيانات المورد',
-            'supplier'     => $supplier,
-            'purchaseOrders' => $purchaseOrders,
-            'payments'     => $payments,
-            'totalPaid'    => $totalPaid,
-            'totalPayables' => $totalPayables,
-            'outstanding'   => $outstanding,
-            'flash'       => $this->getFlash()
-        ];
-
-        $this->view('suppliers/view', $data);
+        $this->redirect('supplier/index');
     }
 }

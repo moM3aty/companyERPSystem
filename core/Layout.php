@@ -2,135 +2,157 @@
 // core/Layout.php
 
 /**
- * نظام القوالب الرئيسي - يتضمن الـ Sidebar والـ Topbar
- * يُستخدم بدلاً من تكرار الكود في كل صفحة
+ * نظام القوالب الرئيسي - يعتمد على الـ 15 وحدة المكونة لنظام ERP Pro
  */
-class Layout {
-    
+class Layout
+{
+
     /**
-     * عرض الصفحة الكاملة مع الهيكل
+     * عرض الصفحة الكاملة مع الهيكل (Layout)
      */
-    public static function render(string $viewContent, array $pageData = []): void {
-        // التحقق من انتهاء الجلسة
+    public static function render(string $viewContent, array $pageData = []): void
+    {
         Session::checkTimeout();
-        
-        // بيانات الصفحة الافتراضية
+
+        // توليد الـ HTML للقائمة الجانبية بناءً على الرابط الحالي
+        $currentUrl = $_GET['url'] ?? 'dashboard';
+        $sidebarHtml = self::renderSidebar($currentUrl);
+
         $layoutData = [
             'page_title'   => $pageData['title'] ?? 'لوحة التحكم',
             'breadcrumb'  => $pageData['breadcrumb'] ?? [],
             'user_name'  => Session::getUserName(),
             'user_role'  => Session::getUserRole(),
-            'user_initials'=> Session::getInitials(),
-            'current_url' => $_GET['url'] ?? 'dashboard',
-            'app_version'=> APP_VERSION,
+            'user_initials' => Session::getInitials(),
+            'app_version' => defined('APP_VERSION') ? APP_VERSION : '2.0.0',
+            'flash'      => Session::getFlash(),
+            'sidebarHtml' => $sidebarHtml,
+            'viewContent' => $viewContent
         ];
-        
-        // دمج بيانات الصفحة فوق بيانات الهيكل
+
         $data = array_merge($layoutData, $pageData);
-        
-        // استدعاء ملف الهيكل
+        extract($data);
+
         require_once APP_ROOT . '/app/views/layouts/main.php';
     }
-    
+
     /**
-     * الحصول على قائمة عناصر القائمة الجانبي
+     * قائمة الـ 15 وحدة (Modules)
      */
- public static function getSidebarItems(): array {
-    return [
-        [
-            'section' => 'الرئيسية',
-            'items' => [
-                ['label' => 'لوحة التحكم', 'icon' => 'fa-gauge-high', 'url' => 'dashboard'],
-                ['label' => 'الموظفين', 'icon' => 'fa-users', 'url' => 'employee/index'],
-                ['label' => 'المخزون', 'icon' => 'fa-boxes-stacked', 'url' => 'product/index'],
-                ['label' => 'المبيعات', 'icon' => 'fa-file-invoice-dollar', 'url' => 'sale/index'],
+    public static function getSidebarItems(): array
+    {
+        return [
+            [
+                'section' => '1. النظام الأساسي',
+                'items' => [
+                    ['label' => 'لوحة التحكم', 'icon' => 'fa-gauge-high', 'url' => 'dashboard'],
+                    ['label' => 'المستخدمين والصلاحيات', 'icon' => 'fa-users-gear', 'url' => 'users/index'],
+                ]
+            ],
+            [
+                'section' => '2. الموارد البشرية HR',
+                'items' => [
+                    ['label' => 'إدارة الموظفين', 'icon' => 'fa-users', 'url' => 'employee/index'],
+                    ['label' => 'مسير الرواتب', 'icon' => 'fa-money-check-dollar', 'url' => 'payroll/index'],
+                    ['label' => 'الحضور والانصراف', 'icon' => 'fa-fingerprint', 'url' => 'attendance/index'],
+                    ['label' => 'طلبات الإجازات', 'icon' => 'fa-calendar-check', 'url' => 'leave/index', 'badge' => '2'],
+                    ['label' => 'الجزاءات والسلف', 'icon' => 'fa-gavel', 'url' => 'sanction/index'],
+                ]
+            ],
+            [
+                'section' => '3. المالية والمحاسبة',
+                'items' => [
+                    ['label' => 'دليل الحسابات', 'icon' => 'fa-sitemap', 'url' => 'account/tree'],
+                    ['label' => 'القيود اليومية', 'icon' => 'fa-book-journal-whills', 'url' => 'journal/index'],
+                    ['label' => 'المصروفات والإيرادات', 'icon' => 'fa-wallet', 'url' => 'expense/index'],
+                    ['label' => 'التقارير المالية', 'icon' => 'fa-file-invoice-dollar', 'url' => 'report/financial'],
+                ]
+            ],
+            [
+                'section' => '4. المبيعات Sales',
+                'items' => [
+                    ['label' => 'قاعدة العملاء', 'icon' => 'fa-address-book', 'url' => 'customer/index'],
+                    ['label' => 'عروض الأسعار', 'icon' => 'fa-file-signature', 'url' => 'quote/index'],
+                    ['label' => 'فواتير المبيعات', 'icon' => 'fa-receipt', 'url' => 'sale/index'],
+                ]
+            ],
+            [
+                'section' => '5. المشتريات والموردين',
+                'items' => [
+                    ['label' => 'إدارة الموردين', 'icon' => 'fa-truck-field', 'url' => 'supplier/index'],
+                    ['label' => 'أوامر الشراء (PO)', 'icon' => 'fa-cart-shopping', 'url' => 'purchase/index'],
+                    ['label' => 'استلام البضائع', 'icon' => 'fa-box-open', 'url' => 'purchase/receiving'],
+                ]
+            ],
+            [
+                'section' => '6. المخازن Inventory',
+                'items' => [
+                    ['label' => 'دليل الأصناف', 'icon' => 'fa-cubes', 'url' => 'product/index'],
+                    ['label' => 'المستودعات ونقل المخزون', 'icon' => 'fa-warehouse', 'url' => 'warehouse/index'],
+                    ['label' => 'الجرد والتسويات', 'icon' => 'fa-clipboard-check', 'url' => 'stocktake/index'],
+                ]
+            ],
+            [
+                'section' => '7. علاقات العملاء CRM',
+                'items' => [
+                    ['label' => 'الفرص البيعية', 'icon' => 'fa-bullseye', 'url' => 'opportunity/index'],
+                    ['label' => 'المتابعات والاجتماعات', 'icon' => 'fa-phone-volume', 'url' => 'followup/index'],
+                ]
+            ],
+            [
+                'section' => '8. المشاريع Projects',
+                'items' => [
+                    ['label' => 'إدارة المشاريع', 'icon' => 'fa-diagram-project', 'url' => 'project/index'],
+                    ['label' => 'المهام (Tasks)', 'icon' => 'fa-list-check', 'url' => 'task/index'],
+                ]
+            ],
+            [
+                'section' => '9. خدمة العملاء والدعم',
+                'items' => [
+                    ['label' => 'التذاكر (Help Desk)', 'icon' => 'fa-headset', 'url' => 'ticket/index'],
+                ]
+            ],
+            [
+                'section' => '10. الأصول والعقود',
+                'items' => [
+                    ['label' => 'الأصول الثابتة', 'icon' => 'fa-building', 'url' => 'asset/index'],
+                    ['label' => 'إدارة العقود (Contracts)', 'icon' => 'fa-file-contract', 'url' => 'contract/index'],
+                    ['label' => 'الوثائق والأرشفة (DMS)', 'icon' => 'fa-folder-tree', 'url' => 'dms/index'],
+                ]
+            ],
+            [
+                'section' => 'الإعدادات والتقارير',
+                'items' => [
+                    ['label' => 'التقارير التحليلية', 'icon' => 'fa-chart-pie', 'url' => 'report/index'],
+                    ['label' => 'الإشعارات (SMS/Email)', 'icon' => 'fa-bell', 'url' => 'notification/index'],
+                    ['label' => 'إعدادات النظام', 'icon' => 'fa-gears', 'url' => 'settings/index'],
+                ]
             ]
-        ],
-        [
-            'section' => 'الموارد البشرية',
-            'items' => [
-                ['label' => 'الإجازات', 'icon' => 'fa-calendar-check', 'url' => 'leave/index'],
-                ['label' => 'الحضور', 'icon' => 'fa-clock', 'url' => 'attendance/index'],
-            ]
-        ],
-        [
-            'section' => 'المشتريات والمخزون',
-            'items' => [
-                ['label' => 'أوامر الشراء', 'icon' => 'fa-cart-plus', 'url' => 'purchase/index'],
-                ['label' => 'المستودعات', 'icon' => 'fa-warehouse', 'url' => 'warehouse/index'],
-                ['label' => 'نقل المخزون', 'icon' => 'fa-arrows-left-right', 'url' => 'warehouse/transfers'],
-            ]
-        ],
-        [
-            'section' => 'المحاسبة',
-            'items' => [
-                ['label' => 'دفتر الأستاذ', 'icon' => 'fa-book', 'url' => 'account/ledger'],
-                ['label' => 'الميزانية العمومية', 'icon' => 'fa-scale-balanced', 'url' => 'account/balance-sheet'],
-                ['label' => 'قائمة الدخل', 'icon' => 'fa-chart-simple', 'url' => 'account/income-statement'],
-            ]
-        ],
-        [
-            'section' => 'CRM والمشاريع',
-            'items' => [
-                ['label' => 'الفرص', 'icon' => 'fa-bullseye', 'url' => 'opportunity/index'],
-                ['label' => 'المتابعات', 'icon' => 'fa-phone', 'url' => 'followup/index'],
-                ['label' => 'المشاريع', 'icon' => 'fa-diagram-project', 'url' => 'project/index'],
-            ]
-        ],
-        [
-            'section' => 'الأصول الثابتة',
-            'items' => [
-                ['label' => 'الأصول', 'icon' => 'fa-building', 'url' => 'asset/index'],
-            ]
-        ],
-        [
-            'section' => 'النظام',
-            'items' => [
-                ['label' => 'الإعدادات', 'icon' => 'fa-gear', 'url' => 'settings/index'],
-                ['label' => 'سجل التدقيق', 'icon' => 'fa-clipboard-list', 'url' => 'audit/index'],
-            ]
-        ]
-    ];
-}
-    
+        ];
+    }
+
     /**
      * توليد الـ Sidebar HTML
      */
-    public static function renderSidebar(string $currentUrl): string {
+    public static function renderSidebar(string $currentUrl): string
+    {
         $items = self::getSidebarItems();
         $html = '<nav class="sidebar-nav">';
-        
-        $currentSection = '';
-        
+
         foreach ($items as $group) {
-            // عنوان القسم
-            $html .= sprintf(
-                '<div class="nav-section-title">%s</div>',
-                Helpers::e($group['section'])
-            );
-            
-            // عناصر القسم
+            $html .= sprintf('<div class="nav-section-title">%s</div>', Helpers::e($group['section']));
+
             foreach ($group['items'] as $item) {
-                $isActive = $currentUrl === $item['url'] ? ' active' : '';
-                $badge = '';
-                
-                // عرض شارة للعناصر النشط
-                if ($item['badge'] !== null) {
-                    $badge = sprintf(
-                        '<span class="nav-badge">%s</span>',
-                        $item['badge']
-                    );
-                }
-                
+                // التحقق ما إذا كان الرابط الحالي يطابق أو يندرج تحت هذا الرابط
+                $urlPath = explode('/', $item['url'])[0];
+                $currentPath = explode('/', $currentUrl)[0];
+
+                $isActive = ($urlPath === $currentPath) ? ' active' : '';
+                $badge = !empty($item['badge']) ? sprintf('<span class="nav-badge">%s</span>', $item['badge']) : '';
+
                 $html .= sprintf(
-                    '<div class="nav-item">' .
-                    '<a href="%s" class="nav-link%s">' .
-                    '<i class="%s"></i>' .
-                    '<span>%s</span>' .
-                    '%s' .
-                    '</a>' .
-                    '</div>',
-                    URL_ROOT . '/' . $item['url'],
+                    '<div class="nav-item"><a href="%s" class="nav-link%s"><i class="fas %s"></i><span>%s</span>%s</a></div>',
+                    self::url($item['url']),
                     $isActive,
                     $item['icon'],
                     Helpers::e($item['label']),
@@ -138,146 +160,12 @@ class Layout {
                 );
             }
         }
-        
         $html .= '</nav>';
-        
         return $html;
     }
-    
-    /**
-     * توليد الـ Topbar HTML
-     */
-    public static function renderTopbar(string $pageTitle, array $breadcrumb = [], array $actions = []): string {
-        // مسار البحث
-        $searchHtml = '
-            <div class="topbar-left">
-                <div class="search-box">
-                    <input type="text" id="globalSearch" placeholder="بحث سريع في النظام..." autocomplete="off">
-                    <i class="fas fa-search"></i>
-                </div>
-            </div>
-        ';
-        
-        // أزرار الإجراءات
-        $actionsHtml = '';
-        if (!empty($actions)) {
-            $actionsHtml = '<div class="topbar-right">';
-            foreach ($actions as $action) {
-                $actionsHtml .= sprintf(
-                    '<button type="button" class="topbar-btn" title="%s" onclick="%s">' .
-                    '<i class="%s"></i>' .
-                    '</button>',
-                    $action['title'] ?? '',
-                    $action['onclick'] ?? '',
-                    $action['icon'] ?? 'fa-circle'
-                );
-            }
-            $actionsHtml .= '</div>';
-        }
-        
-        // فتات مسار التنقل
-        $breadcrumbHtml = '';
-        if (!empty($breadcrumb)) {
-            $breadcrumbHtml = '<div class="breadcrumb">';
-            $count = count($breadcrumb);
-            foreach ($breadcrumb as $i => $crumb) {
-                if ($i < $count - 1) {
-                    $breadcrumbHtml .= sprintf(
-                        '<a href="%s">%s</a><i class="fas fa-chevron-left" style="font-size:9px;"></i>',
-                        $crumb['url'],
-                        Helpers::e($crumb['label'])
-                    );
-                } else {
-                    $breadcrumbHtml .= '<span>' . Helpers::e($crumb['label']) . '</span>';
-                }
-            }
-            $breadcrumbHtml .= '</div>';
-        }
-        
-        return '
-            <header class="topbar">
-                <div style="display:flex;align-items:center;gap:16px;">
-                    <button class="topbar-btn mobile-menu-btn" id="mobileMenuBtn" aria-label="فتح القائمة">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div>
-                        <div class="page-title">' . Helpers::e($pageTitle) . '</div>
-                        ' . $breadcrumbHtml . '
-                    </div>
-                </div>
-                ' . $searchHtml . $actionsHtml . '
-            </header>
-        ';
-    }
-    
-    /**
-     * توليد رسالة Flash HTML
-     */
-    public static function renderFlash(): string {
-        $flash = Session::getFlash();
-        
-        if ($flash === null) {
-            return '';
-        }
-        
-        $icon = match($flash['type']) {
-            'success' => 'fa-circle-check',
-            'error'   => 'fa-circle-xmark',
-            'warning' => 'fa-triangle-exclamation',
-            default   => 'fa-info-circle',
-        };
-        
-        return sprintf(
-            '<div class="flash-msg flash-%s slideDown">' .
-            '<i class="fas %s"></i>' .
-            '<span>%s</span>' .
-            '</div>',
-            $flash['type'],
-            $icon,
-            Helpers::e($flash['message'])
-        );
-    }
-    
-    /**
-     * توليد شريط التنقل (URL_ROOT/...)
-     */
-    public static function url(string $path): string {
+
+    public static function url(string $path): string
+    {
         return URL_ROOT . '/' . ltrim($path, '/');
     }
-    
-    /**
-     * توليد حقل CSRF المخفي
-     */
-    public static function csrfField(): string {
-        return Security::csrfField();
-    }
-    
-    /**
-     * جلب اسم التصنيف بالمعرف
-     */
-    public static function getCategoryName(int $id): string {
-        if ($id <= 0) return '—';
-        
-        $db = Database::getInstance();
-        $db->query("SELECT name FROM categories WHERE id = :id LIMIT 1");
-        $db->bind(':id', $id, PDO::PARAM_INT);
-        $result = $db->single();
-        
-        return $result ? $result->name : '—';
-    }
-    
-    /**
-     * جلب اسم القسم بالمعرف
-     */
-    public static function getDepartmentName(int $id): string {
-        if ($id <= 0) return '—';
-        
-        $db = Database::getInstance();
-        $db->query("SELECT name FROM departments WHERE id = :id LIMIT 1");
-        $db->bind(':id', $id, PDO::PARAM_INT);
-        $result = $db->single();
-        
-        return $result ? $result->name : '—';
-    }
-    
 }

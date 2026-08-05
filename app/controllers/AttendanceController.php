@@ -1,85 +1,74 @@
 <?php
+// app/controllers/AttendanceController.php
+
 class AttendanceController extends Controller {
     
+    private Attendance $attendanceModel;
+
     public function __construct() {
         $this->requireAuth();
+        $this->attendanceModel = $this->model('Attendance');
     }
 
-    public function index() {
-        // عرض تقرير الحضور لشهر معين (افتراضي الشهر الحالي)
-        $month = $_GET['month'] ?? date('m');
-        $year = $_GET['year'] ?? date('Y');
+    /**
+     * عرض السجل اليومي للحضور والانصراف
+     */
+    public function index(): void {
+        // جلب التاريخ من الرابط، وإلا استخدم تاريخ اليوم
+        $date = $this->getQuery('date', date('Y-m-d'));
         
-        $db = Database::getInstance();
-        $db->query('
-            SELECT a.*, e.name as employee_name
-            FROM attendance a
-            JOIN employees e ON a.employee_id = e.id
-            WHERE MONTH(a.date) = :month AND YEAR(a.date) = :year
-            ORDER BY a.date DESC
-        ');
-        $db->bind(':month', $month);
-        $db->bind(':year', $year);
-        $records = $db->resultSet();
+        $records = $this->attendanceModel->getDailyAttendance($date);
         
         $data = [
-            'title' => 'سجل الحضور',
+            'title' => 'الحضور والانصراف',
             'records' => $records,
-            'month' => $month,
-            'year' => $year,
+            'current_date' => $date,
             'flash' => $this->getFlash()
         ];
         
         $this->view('attendance/index', $data);
     }
 
-    public function create() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    /**
+     * تسجيل حالة حضور لموظف
+     */
+    public function create(): void {
+        if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             
-            $employeeId = $_POST['employee_id'];
-            $date = $_POST['date'];
-            $checkIn = $_POST['check_in'];
-            $checkOut = $_POST['check_out'] ?? null;
-            $status = $_POST['status'];
-            
-            $db = Database::getInstance();
-            // التحقق من عدم التكرار
-            $db->query('SELECT id FROM attendance WHERE employee_id = :emp AND date = :date');
-            $db->bind(':emp', $employeeId, PDO::PARAM_INT);
-            $db->bind(':date', $date);
-            $exists = $db->single();
-            if ($exists) {
-                $this->setFlash('error', 'تم تسجيل حضور هذا الموظف في هذا التاريخ مسبقاً');
-                $this->redirect('attendance/index');
+            $data = [
+                'employee_id' => !empty($_POST['employee_id']) ? (int)$_POST['employee_id'] : 0,
+                'date'        => trim($_POST['date'] ?? date('Y-m-d')),
+                'check_in'    => trim($_POST['check_in'] ?? ''),
+                'check_out'   => trim($_POST['check_out'] ?? ''),
+                'status'      => trim($_POST['status'] ?? 'present'),
+                'notes'       => trim($_POST['notes'] ?? '')
+            ];
+
+            if ($data['employee_id'] === 0) {
+                $this->setFlash('error', 'الرجاء تحديد الموظف المطلوب.');
+                $this->redirect('attendance/create');
             }
-            
-            $db->query('
-                INSERT INTO attendance (employee_id, date, check_in, check_out, status)
-                VALUES (:emp, :date, :in, :out, :status)
-            ');
-            $db->bind(':emp', $employeeId, PDO::PARAM_INT);
-            $db->bind(':date', $date);
-            $db->bind(':in', $checkIn);
-            $db->bind(':out', $checkOut);
-            $db->bind(':status', $status);
-            
-            if ($db->execute()) {
-                $this->setFlash('success', 'تم تسجيل الحضور بنجاح');
+
+            if ($this->attendanceModel->recordAttendance($data)) {
+                $this->setFlash('success', 'تم حفظ حالة الحضور للموظف بنجاح.');
+                $this->redirect('attendance/index?date=' . $data['date']);
             } else {
-                $this->setFlash('error', 'حدث خطأ أثناء التسجيل');
+                $this->setFlash('error', 'حدث خطأ أثناء تسجيل الحضور.');
+                $this->redirect('attendance/create');
             }
-            $this->redirect('attendance/index');
         } else {
-            // جلب قائمة الموظفين للاختيار
-            $employeeModel = $this->model('Employee');
-            $employees = $employeeModel->getEmployees();
+            // جلب الموظفين لعرضهم في النموذج
+            $db = Database::getInstance();
+            $db->query("SELECT id, name FROM employees ORDER BY name ASC");
+            $employees = $db->resultSet();
             
             $data = [
-                'title' => 'تسجيل حضور',
+                'title' => 'تسجيل حضور / انصراف',
                 'employees' => $employees,
                 'flash' => $this->getFlash()
             ];
+            
             $this->view('attendance/create', $data);
         }
     }

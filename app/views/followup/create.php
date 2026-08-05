@@ -1,62 +1,53 @@
 <?php
-$flash = $data['flash'] ?? null;
-$customers = $data['customers'] ?? [];
-$opportunities = $data['opportunities'] ?? [];
+// المسار: app/views/followups/create.php
+/** @var array $data */
+$leads = $data['leads'] ?? [];
 ?>
-<div class="page-body">
-    <?php if ($flash) : ?>
-        <div class="flash-msg flash-<?php echo $flash['type']; ?>">...</div>
-    <?php endif; ?>
 
-    <div class="form-card">
-        <form action="<?php echo URL_ROOT; ?>/followup/create" method="POST">
-            <div class="form-section">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>الموضوع</label>
-                        <input type="text" name="subject" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label>النوع</label>
-                        <select name="type" class="form-input">
-                            <option value="call">مكالمة</option>
-                            <option value="meeting">اجتماع</option>
-                            <option value="email">بريد إلكتروني</option>
-                            <option value="task">مهمة</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>العميل (اختياري)</label>
-                        <select name="customer_id" class="form-input">
-                            <option value="">-- بدون عميل --</option>
-                            <?php foreach ($customers as $c) : ?>
-                                <option value="<?php echo $c->id; ?>"><?php echo $c->name; ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>الفرصة (اختياري)</label>
-                        <select name="opportunity_id" class="form-input">
-                            <option value="">-- بدون فرصة --</option>
-                            <?php foreach ($opportunities as $opp) : ?>
-                                <option value="<?php echo $opp->id; ?>"><?php echo $opp->title; ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>التاريخ والوقت المحدد</label>
-                        <input type="datetime-local" name="scheduled_at" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label>الوصف</label>
-                        <textarea name="description" class="form-input" rows="3"></textarea>
-                    </div>
-                </div>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn-submit"><i class="fas fa-save"></i> حفظ</button>
-                <a href="<?php echo URL_ROOT; ?>/followup/index" class="btn-cancel">إلغاء</a>
-            </div>
-        </form>
+<div style="background:var(--card-bg); border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow-sm); overflow:hidden; max-width:600px; margin:0 auto;">
+    <div style="padding:24px 30px; border-bottom:1px solid var(--border); background:#f8fafc;">
+        <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-dark); display:flex; align-items:center; gap:8px;">
+            <i class="fas fa-calendar-plus" style="color:var(--primary);"></i> جدولة متابعة جديدة
+        </h3>
     </div>
+
+    <form action="<?php echo URL_ROOT; ?>/followup/create" method="POST">
+        <div style="padding:30px; display:flex; flex-direction:column; gap:20px;">
+            
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="font-size:13px; font-weight:600; color:var(--text-body);">العميل المحتمل <span style="color:var(--danger);">*</span></label>
+                <select name="lead_id" required style="padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-family:'Cairo'; outline:none;">
+                    <option value="">-- اختر العميل --</option>
+                    <?php foreach($leads as $lead): ?>
+                        <option value="<?php echo $lead->id; ?>"><?php echo htmlspecialchars($lead->name . ($lead->company ? ' - ' . $lead->company : '')); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="font-size:13px; font-weight:600; color:var(--text-body);">نوع المتابعة <span style="color:var(--danger);">*</span></label>
+                <select name="type" required style="padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-family:'Cairo'; outline:none;">
+                    <option value="call">مكالمة هاتفية</option>
+                    <option value="meeting">اجتماع مباشر</option>
+                    <option value="email">إرسال بريد إلكتروني</option>
+                </select>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="font-size:13px; font-weight:600; color:var(--text-body);">التاريخ والوقت <span style="color:var(--danger);">*</span></label>
+                <input type="datetime-local" name="scheduled_date" required style="padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-family:'Cairo'; outline:none; direction:ltr;">
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="font-size:13px; font-weight:600; color:var(--text-body);">الهدف والملاحظات</label>
+                <textarea name="notes" rows="3" style="padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-family:'Cairo'; outline:none;" placeholder="مثال: مناقشة تفاصيل العرض الفني..."></textarea>
+            </div>
+
+        </div>
+        
+        <div style="padding:20px 30px; background:#f8fafc; border-top:1px solid var(--border); display:flex; gap:12px;">
+            <button type="submit" style="padding:10px 24px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-family:'Cairo'; font-weight:700; cursor:pointer;"><i class="fas fa-save"></i> حفظ وجدولة</button>
+            <a href="<?php echo URL_ROOT; ?>/followup/index" style="padding:10px 24px; background:transparent; border:1px solid var(--border); color:var(--text-body); border-radius:8px; text-decoration:none; font-weight:600;">إلغاء</a>
+        </div>
+    </form>
 </div>

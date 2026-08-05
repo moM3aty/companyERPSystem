@@ -1,24 +1,20 @@
 <?php
-// ============================
-// تعريف المسار الجذري للتطبيق
-// ============================
+// public/index.php
+
 if (!defined('APP_ROOT')) {
     define('APP_ROOT', dirname(__DIR__));
 }
 
-// ============================
 // تحميل ملف الإعدادات (يبدأ الجلسة)
-// ============================
 require_once APP_ROOT . '/config/config.php';
 
-// ============================
 // تسجيل الـ autoloader
-// ============================
 spl_autoload_register(function ($class) {
     $paths = [
         APP_ROOT . '/core/',
         APP_ROOT . '/app/models/',
         APP_ROOT . '/app/controllers/',
+        APP_ROOT . '/app/helpers/',
     ];
     
     foreach ($paths as $path) {
@@ -30,15 +26,16 @@ spl_autoload_register(function ($class) {
     }
 });
 
-// ============================
-// توجيه الطلب
-// ============================
 $url = trim($_GET['url'] ?? 'dashboard');
 $url = filter_var($url, FILTER_SANITIZE_URL);
 $parts = explode('/', $url);
 
 $controllerName = ucfirst($parts[0] ?? 'Dashboard') . 'Controller';
-$methodName = $parts[1] ?? 'index';
+
+// معالجة اسم الدالة (تحويل الروابط مثل balance-sheet إلى balanceSheet)
+$methodPart = $parts[1] ?? 'index';
+$methodName = lcfirst(str_replace(' ', '', ucwords(str_replace('-', ' ', $methodPart))));
+
 $params = array_slice($parts, 2);
 
 $controllerFile = APP_ROOT . '/app/controllers/' . $controllerName . '.php';
@@ -63,6 +60,7 @@ if (!class_exists($controllerName)) {
     die('المتحكم غير موجود');
 }
 
+// إذا كانت الدالة غير موجودة، عُد إلى دالة index الافتراضية
 if (!method_exists($controllerName, $methodName)) {
     $methodName = 'index';
 }

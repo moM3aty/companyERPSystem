@@ -1,122 +1,123 @@
 <?php
+// app/controllers/LeaveController.php
+
 class LeaveController extends Controller {
     
+    /** @var Leave */
+    private Leave $leaveModel;
+
     public function __construct() {
+        // حماية الوصول
         $this->requireAuth();
+        $this->leaveModel = $this->model('Leave');
     }
 
-    public function index() {
-        $leaveModel = $this->model('Leave');
-        $employeeModel = $this->model('Employee');
+    /**
+     * عرض قائمة طلبات الإجازات
+     */
+    public function index(): void {
+        $requests = $this->leaveModel->getAllRequests();
         
-        // إذا كان المستخدم admin أو مدير، يعرض كل الطلبات، وإلا يعرض طلباته فقط
-        $isAdmin = ($_SESSION['user_role'] === 'admin');
-        
-        if ($isAdmin) {
-            // جلب كل الطلبات مع بيانات الموظفين
-            $db = Database::getInstance();
-            $db->query('
-                SELECT lr.*, e.name as employee_name, lt.name as leave_type_name
-                FROM leave_requests lr
-                JOIN employees e ON lr.employee_id = e.id
-                LEFT JOIN leave_types lt ON lr.leave_type_id = lt.id
-                ORDER BY lr.id DESC
-            ');
-            $requests = $db->resultSet();
-        } else {
-            // جلب طلبات الموظف الحالي (نفترض أن لدينا employee_id مرتبط بـ user_id)
-            // يمكن ربط users مع employees، لكن هنا نفترض أن user_id = employee_id أو لدينا جدول user_employee
-            // سنفترض أن session تحوي employee_id
-            $employeeId = $_SESSION['employee_id'] ?? 0;
-            $requests = $leaveModel->getByEmployee($employeeId);
-        }
+        // التحقق مما إذا كان المستخدم مديراً لإظهار أزرار القبول/الرفض
+        $isAdmin = Session::hasRole('admin');
         
         $data = [
-            'title' => 'إدارة الإجازات',
+            'title'    => 'إدارة الإجازات',
             'requests' => $requests,
             'is_admin' => $isAdmin,
-            'flash' => $this->getFlash()
+            'flash'    => $this->getFlash()
         ];
         
         $this->view('leave/index', $data);
     }
 
-    public function create() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    /**
+     * تقديم طلب إجازة جديد
+     */
+    public function create(): void {
+        if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             
-            $employeeId = $_SESSION['employee_id'] ?? 0;
-            $leaveTypeId = (int) $_POST['leave_type_id'];
-            $start = $_POST['start_date'];
-            $end = $_POST['end_date'];
-            $reason = trim($_POST['reason']);
-            
-            $errors = [];
-            if (empty($employeeId)) $errors[] = 'معرّف الموظف غير موجود';
-            if ($leaveTypeId <= 0) $errors[] = 'نوع الإجازة مطلوب';
-            if (empty($start) || empty($end)) $errors[] = 'تاريخ البداية والنهاية مطلوبان';
-            if (strtotime($end) < strtotime($start)) $errors[] = 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية';
-            
-            if (empty($errors)) {
-                $leaveModel = $this->model('Leave');
-                if ($leaveModel->request($employeeId, $leaveTypeId, $start, $end, $reason)) {
-                    $this->setFlash('success', 'تم تقديم طلب الإجازة بنجاح');
-                    // إرسال إشعار للمدير (اختياري)
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء تقديم الطلب');
-                }
-            } else {
-                $this->setFlash('error', implode(' | ', $errors));
+            $data = [
+                'employee_id'   => (int)($_POST['employee_id'] ?? 0),
+                'leave_type_id' => (int)($_POST['leave_type_id'] ?? 0),
+                'start_date'    => trim($_POST['start_date'] ?? ''),
+                'end_date'      => trim($_POST['end_date'] ?? ''),
+                'reason'        => trim($_POST['reason'] ?? '')
+            ];
+
+            if (empty($data['employee_id']) || empty($data['leave_type_id']) || empty($data['start_date']) || empty($data['end_date'])) {
+                $this->setFlash('error', 'يرجى تعبئة كافة الحقول المطلوبة بشكل صحيح.');
+                $this->redirect('leave/create');
             }
-            
-            $this->redirect('leave/index');
+
+            // التحقق من صحة التواريخ (تاريخ النهاية يجب أن يكون بعد أو يساوي تاريخ البداية)
+            if (strtotime($data['end_date']) < strtotime($data['start_date'])) {
+                $this->setFlash('error', 'تاريخ نهاية الإجازة يجب أن يكون بعد تاريخ البداية.');
+                $this->redirect('leave/create');
+            }
+
+            if ($this->leaveModel->createRequest($data)) {
+                $this->setFlash('success', 'تم تقديم طلب الإجازة بنجاح، وهو قيد الانتظار لموافقة الإدارة.');
+                $this->redirect('leave/index');
+            } else {
+                $this->setFlash('error', 'حدث خطأ غير متوقع أثناء حفظ الطلب.');
+                $this->redirect('leave/create');
+            }
         } else {
-            // عرض نموذج الإضافة
-            $leaveModel = $this->model('Leave');
-            // جلب أنواع الإجازات
+            // جلب الموظفين وأنواع الإجازات لعرضها في النموذج
             $db = Database::getInstance();
-            $db->query('SELECT * FROM leave_types');
-            $leaveTypes = $db->resultSet();
+            $db->query("SELECT id, name FROM employees ORDER BY name ASC");
+            $employees = $db->resultSet();
+            
+            $leaveTypes = $this->leaveModel->getLeaveTypes();
             
             $data = [
-                'title' => 'طلب إجازة جديد',
+                'title'       => 'تقديم طلب إجازة',
+                'employees'   => $employees,
                 'leave_types' => $leaveTypes,
-                'flash' => $this->getFlash()
+                'flash'       => $this->getFlash()
             ];
             
             $this->view('leave/create', $data);
         }
     }
 
-    public function approve($id) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('leave/index');
-        }
+    /**
+     * الموافقة على طلب الإجازة
+     */
+    public function approve(string $id = ''): void {
+        $this->requireRole('admin'); // حماية: فقط الإدارة يمكنها الموافقة
         
-        $leaveModel = $this->model('Leave');
-        if ($leaveModel->approve($id, $_SESSION['user_id'])) {
-            $this->setFlash('success', 'تمت الموافقة على طلب الإجازة');
-        } else {
-            $this->setFlash('error', 'حدث خطأ أثناء الموافقة');
+        if ($this->isPost() && !empty($id) && is_numeric($id)) {
+            $requestId = (int)$id;
+            $adminId = Session::getUserId();
+            
+            if ($this->leaveModel->updateStatus($requestId, 'approved', $adminId)) {
+                $this->setFlash('success', 'تمت الموافقة على طلب الإجازة بنجاح.');
+            } else {
+                $this->setFlash('error', 'فشل في تحديث حالة الطلب.');
+            }
         }
-        
         $this->redirect('leave/index');
     }
 
-    public function reject($id) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('leave/index');
-        }
+    /**
+     * رفض طلب الإجازة
+     */
+    public function reject(string $id = ''): void {
+        $this->requireRole('admin'); // حماية: فقط الإدارة يمكنها الرفض
         
-        $db = Database::getInstance();
-        $db->query('UPDATE leave_requests SET status = "rejected" WHERE id = :id');
-        $db->bind(':id', $id, PDO::PARAM_INT);
-        if ($db->execute()) {
-            $this->setFlash('success', 'تم رفض طلب الإجازة');
-        } else {
-            $this->setFlash('error', 'حدث خطأ أثناء الرفض');
+        if ($this->isPost() && !empty($id) && is_numeric($id)) {
+            $requestId = (int)$id;
+            $adminId = Session::getUserId();
+            
+            if ($this->leaveModel->updateStatus($requestId, 'rejected', $adminId)) {
+                $this->setFlash('success', 'تم رفض طلب الإجازة.');
+            } else {
+                $this->setFlash('error', 'فشل في تحديث حالة الطلب.');
+            }
         }
-        
         $this->redirect('leave/index');
     }
 }

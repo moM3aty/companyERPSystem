@@ -77,9 +77,9 @@ class AuditController extends Controller {
     }
 
     /**
-     * عرض تفاصيل سجل معين
+     * عرض تفاصيل سجل معين (تم تغيير الاسم من view إلى show لحل التعارض)
      */
-    public function view($id) {
+    public function show($id) {
         $db = Database::getInstance();
         $db->query('
             SELECT al.*, u.name as user_name

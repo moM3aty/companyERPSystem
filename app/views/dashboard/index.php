@@ -1,26 +1,20 @@
 <?php
-// app/views/dashboard/index.php
-// =====================================================
-// الملف الكامل للوحة التحكم مع جميع التنسيقات والقوائم
-// =====================================================
-extract($data);
+$pageTitle = $data['title'] ?? 'لوحة التحكم';
+$stats = $data['stats'] ?? [];
+$activities = $data['recent_activities'] ?? [];
+$currentUrl = 'dashboard';
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $data['title']; ?></title>
-    <!-- الخطوط والأيقونات -->
+    <title><?php echo $pageTitle; ?> | ERP Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
     <style>
-        /* ==========================================
-           المتغيرات الأساسية (نفس الملفات الأخرى)
-           ========================================== */
+        /* (تم استخدام نفس متغيرات التصميم والتنسيق لضمان تجربة مستخدم موحدة) */
         :root {
             --primary: #14b8a6;
             --primary-dark: #0d9488;
@@ -45,11 +39,15 @@ extract($data);
             --border: #e2e8f0;
             --radius: 14px;
             --radius-sm: 10px;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-            --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
         }
 
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: 'Cairo', sans-serif;
@@ -58,9 +56,7 @@ extract($data);
             min-height: 100vh;
         }
 
-        /* ==========================================
-           الشريط الجانبي (Sidebar)
-           ========================================== */
+        /* Sidebar */
         .sidebar {
             position: fixed;
             top: 0;
@@ -71,8 +67,7 @@ extract($data);
             z-index: 100;
             display: flex;
             flex-direction: column;
-            transition: transform 0.3s ease;
-            border-left: 1px solid rgba(255,255,255,0.05);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .sidebar-brand {
@@ -80,759 +75,480 @@ extract($data);
             display: flex;
             align-items: center;
             gap: 14px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .sidebar-brand .s-logo {
-            width: 42px; height: 42px;
+            width: 42px;
+            height: 42px;
             background: linear-gradient(135deg, var(--primary), var(--accent));
             border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; color: #fff; flex-shrink: 0;
-            box-shadow: 0 4px 15px rgba(20,184,166,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(20, 184, 166, 0.25);
         }
 
-        .sidebar-brand .s-text { display: flex; flex-direction: column; }
-        .sidebar-brand .s-name { font-size: 17px; font-weight: 800; color: #f8fafc; letter-spacing: -0.3px; }
-        .sidebar-brand .s-name span { color: var(--primary); }
-        .sidebar-brand .s-ver { font-size: 10px; color: var(--text-muted); margin-top: -2px; }
+        .sidebar-brand .s-name {
+            font-size: 17px;
+            font-weight: 800;
+            color: #f8fafc;
+        }
 
-        .sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
+        .sidebar-brand .s-name span {
+            color: var(--primary);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 12px;
+            overflow-y: auto;
+        }
 
         .nav-section-title {
-            font-size: 10px; font-weight: 700; color: var(--text-muted);
-            text-transform: uppercase; letter-spacing: 1.5px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
             padding: 12px 14px 8px;
         }
 
-        .nav-item { margin-bottom: 2px; }
-
         .nav-link {
-            display: flex; align-items: center; gap: 12px;
-            padding: 11px 14px; border-radius: var(--radius-sm);
-            color: #94a3b8; text-decoration: none;
-            font-size: 14px; font-weight: 500;
-            transition: all 0.2s ease; position: relative;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 14px;
+            border-radius: var(--radius-sm);
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            position: relative;
         }
 
-        .nav-link i { width: 20px; text-align: center; font-size: 15px; }
+        .nav-link i {
+            width: 20px;
+            text-align: center;
+            font-size: 15px;
+        }
 
-        .nav-link:hover { background: #1e293b; color: #e2e8f0; }
+        .nav-link:hover {
+            background: #1e293b;
+            color: #e2e8f0;
+        }
 
         .nav-link.active {
-            background: rgba(20,184,166,0.1);
-            color: var(--primary); font-weight: 600;
+            background: rgba(20, 184, 166, 0.1);
+            color: var(--primary);
+            font-weight: 600;
         }
 
         .nav-link.active::before {
-            content: ''; position: absolute; right: -12px; top: 50%;
-            transform: translateY(-50%); width: 3px; height: 24px;
-            background: var(--primary); border-radius: 0 4px 4px 0;
+            content: '';
+            position: absolute;
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 24px;
+            background: var(--primary);
+            border-radius: 0 4px 4px 0;
         }
 
-        .nav-badge {
-            margin-right: auto;
-            background: var(--accent);
-            color: #fff;
-            font-size: 10px; font-weight: 700;
-            padding: 2px 8px; border-radius: 10px;
-            min-width: 22px; text-align: center;
-        }
-
-        .sidebar-user {
-            padding: 16px 20px;
-            border-top: 1px solid rgba(255,255,255,0.06);
-            display: flex; align-items: center; gap: 12px;
-        }
-
-        .sidebar-user .su-avatar {
-            width: 38px; height: 38px; border-radius: 10px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0;
-        }
-
-        .sidebar-user .su-info { flex: 1; min-width: 0; }
-
-        .sidebar-user .su-name {
-            font-size: 13px; font-weight: 600; color: #e2e8f0;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-
-        .sidebar-user .su-role { font-size: 11px; color: var(--text-muted); }
-
-        .sidebar-user .su-logout {
-            color: var(--text-muted); font-size: 14px; padding: 6px;
-            border-radius: 8px; transition: all 0.2s; text-decoration: none;
-        }
-
-        .sidebar-user .su-logout:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
-
-        /* ==========================================
-           المحتوى الرئيسي
-           ========================================== */
+        /* Main */
         .main-content {
             margin-right: var(--sidebar-w);
             min-height: 100vh;
         }
 
-        /* ==========================================
-           الشريط العلوي (Topbar)
-           ========================================== */
         .topbar {
             height: var(--topbar-h);
             background: var(--card-bg);
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            justify-content: space-between;
             padding: 0 32px;
             position: sticky;
             top: 0;
             z-index: 50;
         }
 
-        .page-title { font-size: 18px; font-weight: 700; color: var(--text-dark); }
-
-        .breadcrumb {
-            display: flex; align-items: center; gap: 8px;
-            font-size: 12px; color: var(--text-muted); margin-top: 2px;
+        .page-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-dark);
         }
 
-        .breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
-        .breadcrumb a:hover { color: var(--primary); }
-
-        .topbar-left { display: flex; align-items: center; gap: 8px; }
-
-        .topbar-btn {
-            width: 40px; height: 40px; border-radius: 10px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text-body);
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.2s; font-size: 15px;
-        }
-
-        .topbar-btn:hover { background: var(--page-bg); border-color: var(--primary); color: var(--primary); }
-
-        .mobile-menu-btn { display: none; }
-
-        /* ==========================================
-           جسم الصفحة (Page Body)
-           ========================================== */
         .page-body {
             padding: 28px 32px 40px;
         }
 
-        /* ==========================================
-           رسائل التنبيه (Flash)
-           ========================================== */
-        .flash-msg {
-            padding: 14px 20px;
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 13px; font-weight: 600;
-            margin-bottom: 24px;
-            animation: slideDown 0.4s ease both;
-            border: 1px solid transparent;
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-12px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .flash-msg.flash-success { background: var(--success-light); color: #15803d; border-color: #bbf7d0; }
-        .flash-msg.flash-error { background: var(--danger-light); color: #dc2626; border-color: #fecaca; }
-        .flash-msg.flash-warning { background: var(--accent-light); color: #b45309; border-color: #fde68a; }
-        .flash-msg i { font-size: 16px; }
-
-        /* ==========================================
-           بطاقات الإحصائيات
-           ========================================== */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 16px;
+        .welcome-banner {
+            background: linear-gradient(135deg, var(--primary) 0%, #0d9488 100%);
+            border-radius: var(--radius);
+            padding: 32px 40px;
+            color: #fff;
             margin-bottom: 28px;
+            position: relative;
+            overflow: hidden;
+            animation: fadeUp 0.5s ease both;
+            box-shadow: 0 10px 30px rgba(20, 184, 166, 0.2);
+        }
+
+        .welcome-banner::before {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            top: -150px;
+            left: -100px;
+        }
+
+        .wb-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .wb-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .wb-subtitle {
+            font-size: 15px;
+            opacity: 0.9;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* Widget Grid */
+        .widget-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 28px;
+            animation: fadeUp 0.5s ease 0.1s both;
         }
 
         .stat-card {
             background: var(--card-bg);
             border-radius: var(--radius);
+            padding: 24px;
             border: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
-            padding: 20px;
-            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+            transition: transform 0.3s;
+            cursor: default;
         }
 
         .stat-card:hover {
             transform: translateY(-4px);
-            box-shadow: var(--shadow-md);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
         }
 
-        .stat-card .sc-top {
+        .stat-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .stat-details {
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 4px;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        /* Secondary Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            animation: fadeUp 0.5s ease 0.2s both;
+        }
+
+        .dashboard-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .dc-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
+            align-items: center;
         }
 
-        .stat-card .sc-icon {
-            width: 44px; height: 44px; border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px;
+        .dc-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .stat-card .sc-label {
-            font-size: 12px; color: var(--text-muted); font-weight: 500;
+        .dc-body {
+            padding: 24px;
         }
 
-        .stat-card .sc-value {
-            font-size: 24px; font-weight: 800; color: var(--text-dark);
-            font-variant-numeric: tabular-nums;
-        }
-
-        .stat-card .sc-sub {
-            font-size: 12px; margin-top: 4px; color: var(--text-muted);
-        }
-
-        .section-title {
-            font-size: 16px; font-weight: 700; color: var(--text-dark);
-            margin: 24px 0 14px 0;
-            display: flex; align-items: center; gap: 8px;
-        }
-
-        .section-title i { color: var(--primary); }
-
-        /* ==========================================
-           الرسم البياني
-           ========================================== */
-        .chart-card {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
-            padding: 20px;
-            margin-bottom: 28px;
-        }
-
-        .chart-card h3 {
-            font-size: 15px; font-weight: 700; color: var(--text-dark);
-            margin-bottom: 16px;
-        }
-
-        .chart-wrap {
-            position: relative;
-            height: 260px;
-        }
-
-        /* ==========================================
-           الأنشطة الأخيرة
-           ========================================== */
-        .activities-card {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
-            padding: 20px;
-        }
-
-        .activities-card h3 {
-            font-size: 15px; font-weight: 700; color: var(--text-dark);
-            margin-bottom: 16px;
+        /* Activity List */
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
         .activity-item {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 10px 0;
+            gap: 16px;
+            padding-bottom: 16px;
             border-bottom: 1px solid var(--border);
         }
 
-        .activity-item:last-child { border-bottom: none; }
-
-        .activity-item .act-icon {
-            width: 36px; height: 36px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px; flex-shrink: 0;
+        .activity-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
         }
 
-        .activity-item .act-icon.insert { background: var(--success-light); color: var(--success); }
-        .activity-item .act-icon.update { background: var(--accent-light); color: var(--accent); }
-        .activity-item .act-icon.delete { background: var(--danger-light); color: var(--danger); }
-        .activity-item .act-icon.login { background: var(--info-light); color: var(--info); }
-
-        .activity-item .act-text { flex: 1; font-size: 13px; }
-        .activity-item .act-text strong { color: var(--text-dark); }
-        .activity-item .act-time { font-size: 11px; color: var(--text-muted); }
-
-        /* ==========================================
-           استجابة الشاشات
-           ========================================== */
-        @media (max-width: 768px) {
-            .sidebar { transform: translateX(100%); }
-            .sidebar.open { transform: translateX(0); }
-            .main-content { margin-right: 0; }
-            .mobile-menu-btn { display: flex; }
-            .page-body { padding: 20px 16px; }
-            .topbar { padding: 0 16px; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        .act-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--success-light);
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
         }
 
-        @media (max-width: 480px) {
-            .stats-grid { grid-template-columns: 1fr; }
+        .act-details {
+            flex: 1;
         }
 
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 99;
+        .act-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 2px;
         }
 
-        .sidebar-overlay.show { display: block; }
+        .act-time {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
 
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        .act-amount {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--success);
+            direction: ltr;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .qa-btn {
+            padding: 14px;
+            border-radius: 12px;
+            background: var(--page-bg);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .qa-btn i {
+            font-size: 20px;
+            color: var(--primary);
+        }
+
+        .qa-btn:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary-dark);
         }
     </style>
 </head>
+
 <body>
 
-    <!-- ==========================================
-    طبقة التعتيم للقائمة في الموبايل
-    ========================================== -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <!-- ==========================================
-    الشريط الجانبي (Sidebar)
-    ========================================== -->
+    <!-- Sidebar Inclusion (Simulated) -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
             <div class="s-logo"><i class="fas fa-cubes"></i></div>
-            <div class="s-text">
-                <span class="s-name">ERP <span>Pro</span></span>
-                <span class="s-ver">v<?php echo APP_VERSION; ?></span>
-            </div>
+            <div class="s-text"><span class="s-name">ERP <span>Pro</span></span></div>
         </div>
-        <nav class="sidebar-nav">
-            <div class="nav-section-title">القائمة الرئيسية</div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/dashboard" class="nav-link active">
-                    <i class="fas fa-gauge-high"></i><span>لوحة التحكم</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/employee" class="nav-link">
-                    <i class="fas fa-users"></i><span>الموظفين</span>
-                    <span class="nav-badge"><?php echo $total_employees ?? 0; ?></span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/product" class="nav-link"><i class="fas fa-boxes-stacked"></i><span>المخزون</span></a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/sale" class="nav-link"><i class="fas fa-file-invoice-dollar"></i><span>المبيعات</span></a>
-            </div>
-
-            <div class="nav-section-title" style="margin-top:12px;">الموارد البشرية</div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/leave" class="nav-link"><i class="fas fa-calendar-check"></i><span>الإجازات</span></a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/attendance" class="nav-link"><i class="fas fa-clock"></i><span>الحضور</span></a>
-            </div>
-
-            <div class="nav-section-title" style="margin-top:12px;">المشتريات والمخزون</div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/purchase" class="nav-link"><i class="fas fa-cart-plus"></i><span>أوامر الشراء</span></a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/warehouse" class="nav-link"><i class="fas fa-warehouse"></i><span>المستودعات</span></a>
-            </div>
-
-            <div class="nav-section-title" style="margin-top:12px;">المالية</div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/account/ledger" class="nav-link"><i class="fas fa-book"></i><span>دفتر الأستاذ</span></a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/account/balance-sheet" class="nav-link"><i class="fas fa-scale-balanced"></i><span>الميزانية</span></a>
-            </div>
-
-            <div class="nav-section-title" style="margin-top:12px;">CRM والمشاريع</div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/opportunity" class="nav-link"><i class="fas fa-bullseye"></i><span>الفرص</span></a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/project" class="nav-link"><i class="fas fa-diagram-project"></i><span>المشاريع</span></a>
-            </div>
-
-            <div class="nav-section-title" style="margin-top:12px;">النظام</div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/settings" class="nav-link"><i class="fas fa-gear"></i><span>الإعدادات</span></a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo URL_ROOT; ?>/audit" class="nav-link"><i class="fas fa-clipboard-list"></i><span>سجل التدقيق</span></a>
-            </div>
-        </nav>
-
-        <div class="sidebar-user">
-            <div class="su-avatar"><?php echo mb_substr($_SESSION['user_name'] ?? 'م', 0, 2); ?></div>
-            <div class="su-info">
-                <div class="su-name"><?php echo $_SESSION['user_name'] ?? ''; ?></div>
-                <div class="su-role"><?php echo $_SESSION['user_role'] ?? 'مدير النظام'; ?></div>
-            </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج">
-                <i class="fas fa-right-from-bracket"></i>
-            </a>
-        </div>
+        <!-- We use the dynamic Layout render function if available -->
+        <?php if (class_exists('Layout')) echo Layout::renderSidebar($currentUrl); ?>
     </aside>
 
-    <!-- ==========================================
-    المحتوى الرئيسي
-    ========================================== -->
     <div class="main-content">
-
-        <!-- ===== الشريط العلوي (Topbar) ===== -->
         <header class="topbar">
-            <div style="display:flex;align-items:center;gap:16px;">
-                <button class="topbar-btn mobile-menu-btn" id="mobileMenuBtn" aria-label="فتح القائمة">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <div>
-                    <div class="page-title"><?php echo $data['title']; ?></div>
-                    <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
-                        <i class="fas fa-chevron-left" style="font-size:9px;"></i>
-                        <span>لوحة التحكم</span>
-                    </div>
-                </div>
-            </div>
-            <div class="topbar-left">
-                <button class="topbar-btn" title="البحث" aria-label="البحث"><i class="fas fa-search"></i></button>
-                <button class="topbar-btn" title="الإشعارات" aria-label="الإشعارات"><i class="fas fa-bell"></i></button>
-                <button class="topbar-btn" title="الإعدادات" aria-label="الإعدادات"><i class="fas fa-gear"></i></button>
-            </div>
+            <div class="page-title">لوحة التحكم السريعة</div>
+            <div style="font-weight:600; font-size:14px;"><i class="far fa-clock"></i> <?php echo date('Y-m-d'); ?></div>
         </header>
 
-        <!-- ===== جسم الصفحة ===== -->
         <div class="page-body">
 
-            <!-- ===== رسائل التنبيه (Flash) ===== -->
-            <?php if (!empty($flash)) : ?>
-                <div class="flash-msg flash-<?php echo $flash['type']; ?>">
-                    <i class="fas fa-<?php echo $flash['type'] === 'success' ? 'circle-check' : 'circle-xmark'; ?>"></i>
-                    <?php echo htmlspecialchars($flash['message']); ?>
-                </div>
-            <?php endif; ?>
-
-            <!-- ===== 1. الموارد البشرية ===== -->
-            <div class="section-title"><i class="fas fa-users"></i> الموارد البشرية</div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">إجمالي الموظفين</span>
-                        <div class="sc-icon" style="background:var(--info-light);color:var(--info);"><i class="fas fa-user-tie"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo number_format($total_employees ?? 0); ?></div>
-                    <div class="sc-sub">موظف مسجل</div>
-                </div>
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">الحضور اليوم</span>
-                        <div class="sc-icon" style="background:var(--success-light);color:var(--success);"><i class="fas fa-clipboard-check"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo number_format($present_today ?? 0); ?></div>
-                    <div class="sc-sub">موظف حاضر اليوم</div>
-                </div>
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">إجازات معلقة</span>
-                        <div class="sc-icon" style="background:var(--accent-light);color:var(--accent);"><i class="fas fa-calendar-clock"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo number_format($pending_leaves ?? 0); ?></div>
-                    <div class="sc-sub">في انتظار الموافقة</div>
+            <div class="welcome-banner">
+                <div class="wb-content">
+                    <h1 class="wb-title">مرحباً بك مجدداً، <?php echo htmlspecialchars($data['user']['name'] ?? 'مدير النظام'); ?> 👋</h1>
+                    <p class="wb-subtitle">لقد تم الانتهاء من بناء هيكلية نظام ERP Pro بنجاح! جميع الوحدات من الموارد البشرية، المبيعات، المشتريات والمحاسبة جاهزة للعمل ضمن قاعدة البيانات الموحدة.</p>
                 </div>
             </div>
 
-            <!-- ===== 2. المالية ===== -->
-            <div class="section-title"><i class="fas fa-coins"></i> المالية والمحاسبة</div>
-            <div class="stats-grid">
+            <div class="widget-grid">
+                <!-- Widget 1 -->
                 <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">إجمالي الإيرادات</span>
-                        <div class="sc-icon" style="background:var(--success-light);color:var(--success);"><i class="fas fa-arrow-trend-up"></i></div>
+                    <div class="stat-icon" style="background:var(--info-light); color:var(--info);">
+                        <i class="fas fa-users"></i>
                     </div>
-                    <div class="sc-value"><?php echo number_format($total_sales ?? 0, 0); ?></div>
-                    <div class="sc-sub">ر.س</div>
+                    <div class="stat-details">
+                        <div class="stat-value"><?php echo $stats['employees'] ?? 0; ?></div>
+                        <div class="stat-label">الموظفين المسجلين</div>
+                    </div>
                 </div>
+                <!-- Widget 2 -->
                 <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">إجمالي المصروفات</span>
-                        <div class="sc-icon" style="background:var(--danger-light);color:var(--danger);"><i class="fas fa-arrow-trend-down"></i></div>
+                    <div class="stat-icon" style="background:var(--accent-light); color:var(--accent);">
+                        <i class="fas fa-boxes-stacked"></i>
                     </div>
-                    <div class="sc-value"><?php echo number_format($total_expenses ?? 0, 0); ?></div>
-                    <div class="sc-sub">ر.س</div>
+                    <div class="stat-details">
+                        <div class="stat-value"><?php echo $stats['products'] ?? 0; ?></div>
+                        <div class="stat-label">المنتجات بالمخزون</div>
+                    </div>
                 </div>
+                <!-- Widget 3 -->
                 <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">صافي الربح</span>
-                        <div class="sc-icon" style="background:var(--primary-light);color:var(--primary-dark);"><i class="fas fa-wallet"></i></div>
+                    <div class="stat-icon" style="background:var(--success-light); color:var(--success);">
+                        <i class="fas fa-coins"></i>
                     </div>
-                    <div class="sc-value" style="color:<?php echo ($net_profit ?? 0) >= 0 ? 'var(--success)' : 'var(--danger)'; ?>;">
-                        <?php echo number_format($net_profit ?? 0, 0); ?>
+                    <div class="stat-details">
+                        <div class="stat-value"><?php echo number_format($stats['sales'] ?? 0); ?></div>
+                        <div class="stat-label">إجمالي المبيعات (ر.س)</div>
                     </div>
-                    <div class="sc-sub">ر.س</div>
                 </div>
+                <!-- Widget 4 -->
                 <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">عدد الفواتير</span>
-                        <div class="sc-icon" style="background:var(--purple-light);color:var(--purple);"><i class="fas fa-receipt"></i></div>
+                    <div class="stat-icon" style="background:var(--purple-light); color:var(--purple);">
+                        <i class="fas fa-diagram-project"></i>
                     </div>
-                    <div class="sc-value"><?php echo number_format($invoice_count ?? 0); ?></div>
-                    <div class="sc-sub">فاتورة مسجلة</div>
+                    <div class="stat-details">
+                        <div class="stat-value"><?php echo $stats['projects'] ?? 0; ?></div>
+                        <div class="stat-label">المشاريع النشطة</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- ===== 3. الرسم البياني ===== -->
-            <div class="chart-card">
-                <h3><i class="fas fa-chart-line" style="color:var(--primary);"></i> تطور المبيعات الشهرية</h3>
-                <div class="chart-wrap">
-                    <canvas id="salesChart"></canvas>
-                </div>
-            </div>
-
-            <!-- ===== 4. المشتريات والمخزون ===== -->
-            <div class="section-title"><i class="fas fa-warehouse"></i> المشتريات والمخزون</div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">أوامر شراء معلقة</span>
-                        <div class="sc-icon" style="background:var(--accent-light);color:var(--accent);"><i class="fas fa-clock"></i></div>
+            <div class="content-grid">
+                <!-- النشاطات الحديثة -->
+                <div class="dashboard-card">
+                    <div class="dc-header">
+                        <h3><i class="fas fa-bolt" style="color:var(--primary);"></i> أحدث فواتير المبيعات</h3>
                     </div>
-                    <div class="sc-value"><?php echo number_format($pending_orders ?? 0); ?></div>
-                    <div class="sc-sub">في انتظار المعالجة</div>
-                </div>
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">قيمة المخزون الإجمالية</span>
-                        <div class="sc-icon" style="background:var(--info-light);color:var(--info);"><i class="fas fa-boxes-stacked"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo number_format($total_stock_value ?? 0, 0); ?></div>
-                    <div class="sc-sub">ر.س</div>
-                </div>
-                <?php if (!empty($warehouse_stock)) : ?>
-                    <?php foreach ($warehouse_stock as $wh) : ?>
-                    <div class="stat-card">
-                        <div class="sc-top">
-                            <span class="sc-label"><?php echo htmlspecialchars($wh->name); ?></span>
-                            <div class="sc-icon" style="background:var(--primary-light);color:var(--primary-dark);"><i class="fas fa-warehouse"></i></div>
-                        </div>
-                        <div class="sc-value"><?php echo number_format($wh->value, 0); ?></div>
-                        <div class="sc-sub">ر.س</div>
-                    </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
-
-            <!-- ===== 5. CRM والمشاريع ===== -->
-            <div class="section-title"><i class="fas fa-bullseye"></i> CRM والمشاريع</div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">الفرص المفتوحة</span>
-                        <div class="sc-icon" style="background:var(--info-light);color:var(--info);"><i class="fas fa-flag"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo $opportunity_stats->open ?? 0; ?></div>
-                    <div class="sc-sub">قيمة تقديرية: <?php echo number_format($opportunity_stats->total_value ?? 0, 0); ?> ر.س</div>
-                </div>
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">الفرص المغلقة (فوز)</span>
-                        <div class="sc-icon" style="background:var(--success-light);color:var(--success);"><i class="fas fa-trophy"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo $opportunity_stats->won ?? 0; ?></div>
-                    <div class="sc-sub"><?php echo $opportunity_stats->lost ?? 0; ?> خسارة</div>
-                </div>
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">المشاريع النشطة</span>
-                        <div class="sc-icon" style="background:var(--primary-light);color:var(--primary-dark);"><i class="fas fa-diagram-project"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo $project_stats->active ?? 0; ?></div>
-                    <div class="sc-sub">إجمالي: <?php echo $project_stats->total ?? 0; ?> مشروع</div>
-                </div>
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">ميزانية المشاريع</span>
-                        <div class="sc-icon" style="background:var(--purple-light);color:var(--purple);"><i class="fas fa-money-bill"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo number_format($project_stats->total_budget ?? 0, 0); ?></div>
-                    <div class="sc-sub">ر.س</div>
-                </div>
-            </div>
-
-            <!-- ===== 6. الأصول الثابتة ===== -->
-            <div class="section-title"><i class="fas fa-building"></i> الأصول الثابتة</div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">إجمالي الأصول</span>
-                        <div class="sc-icon" style="background:var(--info-light);color:var(--info);"><i class="fas fa-cubes"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo $asset_stats->total ?? 0; ?></div>
-                    <div class="sc-sub">أصل مسجل</div>
-                </div>
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">التكلفة الإجمالية</span>
-                        <div class="sc-icon" style="background:var(--accent-light);color:var(--accent);"><i class="fas fa-coins"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo number_format($asset_stats->total_cost ?? 0, 0); ?></div>
-                    <div class="sc-sub">ر.س</div>
-                </div>
-                <div class="stat-card">
-                    <div class="sc-top">
-                        <span class="sc-label">القيمة الحالية</span>
-                        <div class="sc-icon" style="background:var(--success-light);color:var(--success);"><i class="fas fa-chart-simple"></i></div>
-                    </div>
-                    <div class="sc-value"><?php echo number_format($asset_stats->total_current_value ?? 0, 0); ?></div>
-                    <div class="sc-sub">بعد الإهلاك</div>
-                </div>
-            </div>
-
-            <!-- ===== 7. الأنشطة الأخيرة ===== -->
-            <div class="activities-card">
-                <h3><i class="fas fa-clock-rotate-left" style="color:var(--info);"></i> آخر الأنشطة في النظام</h3>
-                <?php if (!empty($recent_activities)) : ?>
-                    <?php foreach ($recent_activities as $act) : 
-                        $iconClass = match($act->action) {
-                            'insert' => 'insert', 'update' => 'update', 'delete' => 'delete', 'login' => 'login',
-                            default => 'update'
-                        };
-                        $actionName = match($act->action) {
-                            'insert' => 'أضاف', 'update' => 'عدّل', 'delete' => 'حذف', 'login' => 'سجّل دخول',
-                            default => $act->action
-                        };
-                    ?>
-                    <div class="activity-item">
-                        <div class="act-icon <?php echo $iconClass; ?>">
-                            <i class="fas <?php echo match($iconClass) {
-                                'insert' => 'fa-plus', 'update' => 'fa-pen', 'delete' => 'fa-trash', 'login' => 'fa-right-to-bracket',
-                                default => 'fa-circle'
-                            }; ?>"></i>
-                        </div>
-                        <div class="act-text">
-                            <strong><?php echo htmlspecialchars($act->user_name ?? 'مستخدم'); ?></strong>
-                            <?php echo $actionName; ?>
-                            في جدول <strong><?php echo $act->table_name; ?></strong>
-                            <?php if ($act->record_id) : ?>
-                                (رقم <?php echo $act->record_id; ?>)
+                    <div class="dc-body">
+                        <div class="activity-list">
+                            <?php if (!empty($activities)): ?>
+                                <?php foreach ($activities as $act): ?>
+                                    <div class="activity-item">
+                                        <div class="act-icon"><i class="fas fa-file-invoice"></i></div>
+                                        <div class="act-details">
+                                            <div class="act-title">فاتورة مبيعات #<?php echo htmlspecialchars($act->title); ?></div>
+                                            <div class="act-time"><i class="far fa-clock"></i> <?php echo date('Y-m-d H:i', strtotime($act->created_at)); ?></div>
+                                        </div>
+                                        <div class="act-amount">+<?php echo number_format($act->details, 2); ?> ر.س</div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div style="text-align:center; padding: 20px; color:var(--text-muted); font-size:13px;">
+                                    <i class="fas fa-receipt" style="font-size:32px; margin-bottom:10px; color:var(--border);"></i><br>
+                                    لا توجد فواتير مبيعات مسجلة بعد.
+                                </div>
                             <?php endif; ?>
-                            <div class="act-time"><?php echo date('Y-m-d H:i', strtotime($act->created_at)); ?></div>
                         </div>
                     </div>
-                    <?php endforeach; ?>
-                <?php else : ?>
-                    <div class="activity-item" style="justify-content:center;color:var(--text-muted);">لا توجد أنشطة مسجلة بعد</div>
-                <?php endif; ?>
+                </div>
+
+                <!-- إجراءات سريعة -->
+                <div class="dashboard-card">
+                    <div class="dc-header">
+                        <h3><i class="fas fa-bolt" style="color:var(--accent);"></i> إجراءات سريعة</h3>
+                    </div>
+                    <div class="dc-body">
+                        <div class="quick-actions">
+                            <a href="<?php echo URL_ROOT; ?>/sale/create" class="qa-btn">
+                                <i class="fas fa-file-invoice-dollar"></i> فاتورة مبيعات
+                            </a>
+                            <a href="<?php echo URL_ROOT; ?>/purchase/create" class="qa-btn">
+                                <i class="fas fa-cart-plus"></i> أمر شراء
+                            </a>
+                            <a href="<?php echo URL_ROOT; ?>/product/create" class="qa-btn">
+                                <i class="fas fa-box-open"></i> منتج جديد
+                            </a>
+                            <a href="<?php echo URL_ROOT; ?>/employee/create" class="qa-btn">
+                                <i class="fas fa-user-plus"></i> إضافة موظف
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-        </div> <!-- .page-body -->
-    </div> <!-- .main-content -->
-
-    <!-- ==========================================
-    سكريبتات الجافاسكريبت
-    ========================================== -->
-    <script>
-        // ===== الرسم البياني للمبيعات الشهرية =====
-        (function() {
-            const ctx = document.getElementById('salesChart');
-            if (!ctx) return;
-
-            const salesData = <?php echo json_encode($sales_chart ?? array_fill(0, 12, 0)); ?>;
-            const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-                            'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: months,
-                    datasets: [{
-                        label: 'المبيعات الشهرية (ر.س)',
-                        data: salesData,
-                        backgroundColor: 'rgba(20, 184, 166, 0.7)',
-                        borderColor: '#14b8a6',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            rtl: true,
-                            titleFont: { family: 'Cairo' },
-                            bodyFont: { family: 'Cairo' },
-                            callbacks: {
-                                label: function(ctx) {
-                                    return ctx.parsed.y.toLocaleString('ar-SA') + ' ر.س';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { display: false },
-                            ticks: { font: { family: 'Cairo', size: 11 }, color: '#94a3b8' }
-                        },
-                        y: {
-                            grid: { color: 'rgba(0,0,0,0.04)' },
-                            ticks: {
-                                font: { family: 'Cairo', size: 11 },
-                                color: '#94a3b8',
-                                callback: function(v) { return v >= 1000 ? (v/1000).toFixed(0) + 'K' : v; }
-                            }
-                        }
-                    }
-                }
-            });
-        })();
-
-        // ===== قائمة الموبايل =====
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-        const menuBtn = document.getElementById('mobileMenuBtn');
-
-        if (menuBtn) {
-            menuBtn.addEventListener('click', function() {
-                sidebar.classList.toggle('open');
-                overlay.classList.toggle('show');
-            });
-        }
-
-        if (overlay) {
-            overlay.addEventListener('click', function() {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('show');
-            });
-        }
-
-        // إغلاق القائمة عند تغيير حجم الشاشة (إذا أصبحت كبيرة)
-        window.addEventListener('resize', function() {
-            if (window.innerWidth > 768) {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('show');
-            }
-        });
-    </script>
-
+        </div>
+    </div>
 </body>
+
 </html>

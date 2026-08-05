@@ -1,4 +1,6 @@
 <?php
+    // app/models//Notification.php
+
 class Notification extends Model {
     protected string $table = 'notifications';
     

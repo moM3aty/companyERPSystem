@@ -126,7 +126,7 @@ class Customer extends Model {
     }
     
     /**
-     * حذف عميل
+     * حذف عميل (يتحقق من وجود فواتير)
      */
     public function deleteCustomer($id) {
         // التحقق من وجود فواتير قيد التنفيذ
@@ -135,28 +135,14 @@ class Customer extends Model {
         $result = $this->db->single();
         
         if ($result && $result->cnt > 0) {
-            throw new \Exception('لا يمكن حذف العميل - لديه ' . $result->cnt . ' فاتورة قيد التنفيذ');
+            throw new \Exception('لا يمكن حذف العميل - لديه ' . $result->cnt . ' فاتورة');
         }
         
-        return parent::delete($id);
+        return $this->delete($id);
     }
     
     /**
-     * جلب عدد فواتير العميل
-     */
-    private function getInvoiceCount($customerId) {
-        $this->db->query("
-            SELECT COUNT(*) as cnt 
-            FROM invoices 
-            WHERE customer_id = :cid
-        ");
-        $this->db->bind(':cid', $customerId, PDO::PARAM_INT);
-        $result = $this->db->single();
-        return $result ? (int) $result->cnt : 0;
-    }
-    
-    /**
-     * جلب أعلى العملاء شراءً (للتقاريرات)
+     * جلب أعلى العملاء شراءً (للتقارير)
      */
     public function getTopCustomers($limit = 10) {
         $this->db->query('
@@ -171,5 +157,15 @@ class Customer extends Model {
         ');
         $this->db->bind(':lim', $limit, PDO::PARAM_INT);
         return $this->db->resultSet();
+    }
+
+    /**
+     * تحديث رصيد العميل (يستخدم عند إضافة فاتورة أو دفعة)
+     */
+    public function updateBalance($id, $amount) {
+        $this->db->query('UPDATE customers SET balance = balance + :amount WHERE id = :id');
+        $this->db->bind(':amount', $amount);
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        return $this->db->execute();
     }
 }

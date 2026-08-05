@@ -4,59 +4,49 @@
 class CustomerController extends Controller {
     
     public function __construct() {
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: ' . URL_ROOT . '/auth/login');
-            exit();
-        }
-    }
-
-    private function setFlash($type, $message) {
-        $_SESSION['flash'] = ['type' => $type, 'message' => $message];
-    }
-
-    private function getFlash() {
-        if (isset($_SESSION['flash'])) {
-            $flash = $_SESSION['flash'];
-            unset($_SESSION['flash']);
-            return $flash;
-        }
-        return null;
+        // التحقق من تسجيل الدخول قبل الوصول لأي وظيفة في هذا المتحكم
+        $this->requireAuth();
     }
 
     /**
-     * قائمة العملاء مع البحث
+     * قائمة العملاء مع البحث والفلترة
      */
     public function index() {
         $customerModel = $this->model('Customer');
 
-        $search = trim($_GET['search'] ?? '');
-        $filter = trim($_GET['filter'] ?? 'all');
+        $search = trim($this->getQuery('search', ''));
+        $filter = trim($this->getQuery('filter', 'all'));
 
+        // جلب البيانات بناءً على البحث
         if (!empty($search)) {
             $customers = $customerModel->searchCustomers($search);
         } else {
             $customers = $customerModel->getCustomers();
         }
 
-        // تصفية حسب النوع (مع إعادة ترقيم المصفوفة)
+        // تصفية حسب النوع (أفراد أو شركات)
         if ($filter === 'company') {
-            $customers = array_values(array_filter($customers, function($c) {
-                return $c->type === 'company';
-            }));
+            $customers = array_values(array_filter($customers, function($c) { return $c->type === 'company'; }));
         } elseif ($filter === 'individual') {
-            $customers = array_values(array_filter($customers, function($c) {
-                return $c->type === 'individual';
-            }));
+            $customers = array_values(array_filter($customers, function($c) { return $c->type === 'individual'; }));
+        }
+
+        // حساب إجمالي ذمم العملاء (الديون المستحقة لنا)
+        $totalReceivables = 0;
+        foreach ($customers as $c) {
+            if ($c->balance > 0) {
+                $totalReceivables += $c->balance;
+            }
         }
 
         $data = [
-            'title'           => 'إدارة العملاء',
-            'customers'       => $customers,
-            'search'          => $search,
-            'filter'          => $filter,
-            'total_count'     => $customerModel->getCustomerCount(),
-            'total_receivables' => $customerModel->getTotalReceivables(),
-            'flash'           => $this->getFlash()
+            'title'             => 'إدارة العملاء',
+            'customers'         => $customers,
+            'search'            => $search,
+            'filter'            => $filter,
+            'total_count'       => count($customers),
+            'total_receivables' => $totalReceivables,
+            'flash'             => $this->getFlash()
         ];
 
         $this->view('customers/index', $data);
@@ -66,38 +56,31 @@ class CustomerController extends Controller {
      * إضافة عميل جديد
      */
     public function create() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-
+        if ($this->isPost()) {
             $data = [
                 'name'    => trim($_POST['name'] ?? ''),
-                'email'   => trim($_POST['email'] ?? ''),
                 'phone'   => trim($_POST['phone'] ?? ''),
+                'email'   => trim($_POST['email'] ?? ''),
                 'address' => trim($_POST['address'] ?? ''),
-                'type'    => trim($_POST['type'] ?? 'individual'),
-                'balance' => 0,
-                'notes'   => trim($_POST['notes'] ?? '')
+                'notes'   => trim($_POST['notes'] ?? ''),
+                'type'    => trim($_POST['type'] ?? 'individual')
             ];
 
             $errors = [];
 
-            if (empty($data['name']) || mb_strlen($data['name']) < 3) {
-                $errors[] = 'اسم العميل مطلوب (3 أحرف على الأقل)';
+            if (empty($data['name'])) {
+                $errors[] = 'اسم العميل مطلوب';
             }
 
             if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
                 $errors[] = 'صيغة البريد الإلكتروني غير صحيحة';
             }
 
-            $allowedTypes = ['individual', 'company'];
-            if (!in_array($data['type'], $allowedTypes)) {
-                $data['type'] = 'individual';
-            }
-
             if (empty($errors)) {
                 $customerModel = $this->model('Customer');
                 if ($customerModel->addCustomer($data)) {
                     $this->setFlash('success', 'تم إضافة العميل "' . $data['name'] . '" بنجاح');
+                    $this->redirect('customer/index');
                 } else {
                     $this->setFlash('error', 'حدث خطأ أثناء حفظ البيانات');
                 }
@@ -105,8 +88,7 @@ class CustomerController extends Controller {
                 $this->setFlash('error', implode(' | ', $errors));
             }
 
-            header('Location: ' . URL_ROOT . '/customer/create');
-            exit();
+            $this->redirect('customer/create');
         }
 
         $data = [
@@ -118,25 +100,22 @@ class CustomerController extends Controller {
     }
 
     /**
-     * تعديل عميل
+     * تعديل بيانات عميل
      */
     public function edit($id) {
         $customerModel = $this->model('Customer');
-        $customer = $customerModel->getCustomerById($id);
+        $customer = $customerModel->getCustomerById((int)$id);
 
         if (!$customer) {
             $this->setFlash('warning', 'العميل المطلوب غير موجود');
-            header('Location: ' . URL_ROOT . '/customer/index');
-            exit();
+            $this->redirect('customer/index');
         }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-
+        if ($this->isPost()) {
             $data = [
                 'name'    => trim($_POST['name'] ?? ''),
-                'email'   => trim($_POST['email'] ?? ''),
                 'phone'   => trim($_POST['phone'] ?? ''),
+                'email'   => trim($_POST['email'] ?? ''),
                 'address' => trim($_POST['address'] ?? ''),
                 'notes'   => trim($_POST['notes'] ?? ''),
                 'type'    => trim($_POST['type'] ?? 'individual')
@@ -144,17 +123,18 @@ class CustomerController extends Controller {
 
             $errors = [];
 
-            if (empty($data['name']) || mb_strlen($data['name']) < 3) {
-                $errors[] = 'اسم العميل مطلوب (3 أحرف على الأقل)';
+            if (empty($data['name'])) {
+                $errors[] = 'اسم العميل مطلوب';
             }
 
             if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'صيغة البريد الإلكتروني غير صحيحة';
+                $errors[] = 'صيغة البريد غير صحيحة';
             }
 
             if (empty($errors)) {
-                if ($customerModel->updateCustomer($data, $id)) {
-                    $this->setFlash('success', 'تم تحديث بيانات العميل بنجاح');
+                if ($customerModel->updateCustomer($data, (int)$id)) {
+                    $this->setFlash('success', 'تم تحديث بيانات العميل "' . $data['name'] . '" بنجاح');
+                    $this->redirect('customer/index');
                 } else {
                     $this->setFlash('error', 'حدث خطأ أثناء التحديث');
                 }
@@ -162,8 +142,7 @@ class CustomerController extends Controller {
                 $this->setFlash('error', implode(' | ', $errors));
             }
 
-            header('Location: ' . URL_ROOT . '/customer/edit/' . $id);
-            exit();
+            $this->redirect('customer/edit/' . $id);
         }
 
         $data = [
@@ -179,104 +158,66 @@ class CustomerController extends Controller {
      * حذف عميل
      */
     public function delete($id) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ' . URL_ROOT . '/customer/index');
-            exit();
+        // حماية من عمليات الحذف عبر روابط GET
+        if (!$this->isPost()) {
+            $this->redirect('customer/index');
         }
 
         $customerModel = $this->model('Customer');
-        $customer = $customerModel->getCustomerById($id);
+        $customer = $customerModel->getCustomerById((int)$id);
 
         if (!$customer) {
             $this->setFlash('warning', 'العميل غير موجود');
-            header('Location: ' . URL_ROOT . '/customer/index');
-            exit();
+            $this->redirect('customer/index');
         }
 
-        if ($customer->balance > 0) {
-            $this->setFlash('warning', 'لا يمكن حذف العميل "' . $customer->name . '" — لديه رصيد مدين بقيمة ' . number_format($customer->balance, 2) . ' ر.س');
-        } else {
-            if ($customerModel->deleteCustomer($id)) {
+        try {
+            if ($customerModel->deleteCustomer((int)$id)) {
                 $this->setFlash('success', 'تم حذف العميل "' . $customer->name . '" بنجاح');
             } else {
-                $this->setFlash('error', 'حدث خطأ أثناء الحذف');
+                $this->setFlash('error', 'حدث خطأ أثناء الحذف (قد يكون للعميل فواتير مرتبطة)');
             }
+        } catch (Exception $e) {
+            $this->setFlash('error', 'لا يمكن الحذف لوجود سجلات مالية متعلقة بالعميل.');
         }
 
-        header('Location: ' . URL_ROOT . '/customer/index');
-        exit();
+        $this->redirect('customer/index');
     }
 
     /**
-     * بحث AJAX — يُرجع JSON للقوائم المنسدلة
+     * عرض بيانات عميل (بروفايل العميل الشامل)
      */
-    public function search() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            echo json_encode([]);
-            return;
-        }
-
-        $query = trim($_GET['q'] ?? '');
-        if (empty($query) || mb_strlen($query) < 2) {
-            echo json_encode([]);
-            return;
-        }
-
-        $results = $this->model('Customer')->searchCustomers($query);
-
-        $output = [];
-        foreach ($results as $c) {
-            $output[] = [
-                'id'    => $c->id,
-                'name'  => $c->name,
-                'phone' => $c->phone,
-                'type'  => $c->type
-            ];
-        }
-
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($output);
-    }
-
-    /**
-     * عرض بيانات عميل (بروفايل)
-     */
-    public function view($id) {
+    public function show($id) {
         $customerModel = $this->model('Customer');
-        $accountingModel = $this->model('Accounting');
-
-        $customer = $customerModel->getCustomerById($id);
+        $customer = $customerModel->getCustomerById((int)$id);
 
         if (!$customer) {
             $this->setFlash('warning', 'العميل غير موجود');
-            header('Location: ' . URL_ROOT . '/customer/index');
-            exit();
+            $this->redirect('customer/index');
         }
 
-        // جلب فواتير العميل
+        // جلب الفواتير المرتبطة بالعميل
         $db = Database::getInstance();
-        
         $db->query('
-            SELECT id, invoice_number, total_amount, created_at
+            SELECT id, invoice_number, total_amount, payment_status, created_at
             FROM invoices
             WHERE customer_id = :cid
             ORDER BY id DESC
-            LIMIT 50
         ');
         $db->bind(':cid', $id, PDO::PARAM_INT);
         $invoices = $db->resultSet();
 
-        // جلب المدفوعات
+        // جلب المدفوعات (إيصالات القبض من العميل)
         $db->query('
             SELECT p.*
             FROM payments p
-            WHERE reference_type = "invoice"
-              AND reference_id IN (
-                  SELECT id FROM invoices WHERE customer_id = :cid2
+            WHERE p.reference_type = "invoice"
+              AND p.reference_id IN (
+                  SELECT id FROM invoices WHERE customer_id = :cid
               )
-            ORDER BY created_at DESC
+            ORDER BY p.created_at DESC
         ');
-        $db->bind(':cid2', $id, PDO::PARAM_INT);
+        $db->bind(':cid', $id, PDO::PARAM_INT);
         $payments = $db->resultSet();
 
         // حساب الإجمالي المدفوع
@@ -290,10 +231,11 @@ class CustomerController extends Controller {
             'customer'   => $customer,
             'invoices'   => $invoices,
             'payments'   => $payments,
-            'total_paid'   => $totalPaid,
+            'total_paid' => $totalPaid,
             'flash'      => $this->getFlash()
         ];
 
-        $this->view('customers/view', $data);
+        // استدعاء ملف الـ view لعرض البيانات
+        $this->view('customers/view', $data); 
     }
 }

@@ -1,83 +1,127 @@
 <?php
+// app/controllers/OpportunityController.php
+
 class OpportunityController extends Controller {
     
+    /** @var Opportunity */
+    private Opportunity $oppModel;
+
     public function __construct() {
+        // حماية الوصول
         $this->requireAuth();
+        $this->oppModel = $this->model('Opportunity');
     }
 
-    public function index() {
-        $opportunityModel = $this->model('Opportunity');
-        $opportunities = $opportunityModel->getAll('id', 'DESC');
-        
-        // جلب أسماء العملاء والمسؤولين
-        $db = Database::getInstance();
-        foreach ($opportunities as $opp) {
-            $db->query('SELECT name FROM customers WHERE id = :cid');
-            $db->bind(':cid', $opp->customer_id);
-            $customer = $db->single();
-            $opp->customer_name = $customer ? $customer->name : '—';
-        }
+    /**
+     * عرض قائمة الفرص البيعية
+     */
+    public function index(): void {
+        $opportunities = $this->oppModel->getAllOpportunities();
         
         $data = [
-            'title' => 'فرص البيع',
+            'title' => 'الفرص البيعية (CRM)',
             'opportunities' => $opportunities,
-            'flash' => $this->getFlash()
+            'breadcrumb' => [
+                ['label' => 'المبيعات و CRM', 'url' => '#'],
+                ['label' => 'الفرص البيعية', 'url' => 'opportunity/index']
+            ]
         ];
+        
+        ob_start();
         $this->view('opportunity/index', $data);
+        $content = ob_get_clean();
+        
+        Layout::render($content, $data);
     }
 
-    public function create() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    /**
+     * إضافة فرصة بيعية جديدة
+     */
+    public function create(): void {
+        if ($this->isPost()) {
+            // تنظيف المدخلات
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            $data = [
-                'customer_id' => (int) $_POST['customer_id'],
-                'title' => trim($_POST['title']),
-                'description' => trim($_POST['description']),
-                'stage' => $_POST['stage'],
-                'estimated_value' => (float) $_POST['estimated_value'],
-                'probability' => (int) $_POST['probability'],
-                'expected_close_date' => $_POST['expected_close_date'],
-                'assigned_to' => !empty($_POST['assigned_to']) ? (int) $_POST['assigned_to'] : null,
-            ];
             
-            $opportunityModel = $this->model('Opportunity');
-            if ($opportunityModel->create($data)) {
-                $this->setFlash('success', 'تم إضافة الفرصة بنجاح');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء الإضافة');
+            $data = [
+                'title'               => trim($_POST['title'] ?? ''),
+                'customer_id'         => (int)($_POST['customer_id'] ?? 0),
+                'stage'               => trim($_POST['stage'] ?? 'qualification'),
+                'estimated_value'     => (float)($_POST['estimated_value'] ?? 0.00),
+                'probability'         => (int)($_POST['probability'] ?? 50),
+                'expected_close_date' => trim($_POST['expected_close_date'] ?? ''),
+                'assigned_to'         => !empty($_POST['assigned_to']) ? (int)$_POST['assigned_to'] : null,
+                'description'         => trim($_POST['description'] ?? '')
+            ];
+
+            if (empty($data['title']) || empty($data['customer_id'])) {
+                $this->setFlash('error', 'يرجى إدخال عنوان الفرصة واختيار العميل.');
+                $this->redirect('opportunity/create');
             }
-            $this->redirect('opportunity/index');
+
+            if ($this->oppModel->createOpportunity($data)) {
+                $this->setFlash('success', 'تم تسجيل الفرصة البيعية بنجاح.');
+                $this->redirect('opportunity/index');
+            } else {
+                $this->setFlash('error', 'حدث خطأ أثناء الحفظ، يرجى المحاولة مرة أخرى.');
+                $this->redirect('opportunity/create');
+            }
+
         } else {
-            // جلب العملاء والمستخدمين للاختيار
-            $customerModel = $this->model('Customer');
-            $customers = $customerModel->getCustomers();
-            $userModel = $this->model('User');
-            $users = $userModel->getAll(); // تحتاج إضافة getAll في User model
+            // جلب العملاء والمستخدمين لعرضهم في قوائم الاختيار (Select)
+            $db = Database::getInstance();
             
+            $db->query("SELECT id, name FROM customers ORDER BY name ASC");
+            $customers = $db->resultSet();
+            
+            $db->query("SELECT id, name FROM users ORDER BY name ASC");
+            $users = $db->resultSet();
+
             $data = [
-                'title' => 'إضافة فرصة جديدة',
+                'title'     => 'فرصة بيعية جديدة',
                 'customers' => $customers,
-                'users' => $users,
-                'flash' => $this->getFlash()
+                'users'     => $users,
+                'breadcrumb' => [
+                    ['label' => 'الفرص البيعية', 'url' => 'opportunity/index'],
+                    ['label' => 'فرصة جديدة', 'url' => '#']
+                ]
             ];
+            
+            ob_start();
             $this->view('opportunity/create', $data);
+            $content = ob_get_clean();
+            
+            Layout::render($content, $data);
         }
     }
 
-    public function edit($id) {
-        // مشابه للإضافة مع جلب البيانات الحالية
-        // ...
-    }
-
-    public function delete($id) {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $opportunityModel = $this->model('Opportunity');
-            if ($opportunityModel->delete($id)) {
-                $this->setFlash('success', 'تم حذف الفرصة');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء الحذف');
-            }
+    /**
+     * عرض تفاصيل الفرصة البيعية
+     */
+    public function show(string $id = ''): void {
+        if (empty($id) || !is_numeric($id)) {
             $this->redirect('opportunity/index');
         }
+
+        $opportunity = $this->oppModel->getOpportunityById((int)$id);
+        
+        if (!$opportunity) {
+            $this->setFlash('error', 'الفرصة المطلوبة غير موجودة.');
+            $this->redirect('opportunity/index');
+        }
+
+        $data = [
+            'title' => 'تفاصيل الفرصة',
+            'opportunity' => $opportunity,
+            'breadcrumb' => [
+                ['label' => 'الفرص البيعية', 'url' => 'opportunity/index'],
+                ['label' => 'تفاصيل الفرصة', 'url' => '#']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('opportunity/view', $data);
+        $content = ob_get_clean();
+        
+        Layout::render($content, $data);
     }
 }

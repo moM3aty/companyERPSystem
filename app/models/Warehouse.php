@@ -1,4 +1,6 @@
 <?php
+    // app/models//Warehouse.php
+
 class Warehouse extends Model {
     protected string $table = 'warehouses';
     

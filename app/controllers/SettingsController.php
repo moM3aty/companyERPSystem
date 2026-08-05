@@ -16,21 +16,7 @@ class SettingsController extends Controller {
         }
     }
 
-    /**
-     * رسائل مؤقتة (Flash Messages)
-     */
-    private function setFlash($type, $message) {
-        $_SESSION['flash'] = ['type' => $type, 'message' => $message];
-    }
-
-    private function getFlash() {
-        if (isset($_SESSION['flash'])) {
-            $flash = $_SESSION['flash'];
-            unset($_SESSION['flash']);
-            return $flash;
-        }
-        return null;
-    }
+    // تم حذف دوال setFlash و getFlash من هنا لأنها موروثة من Controller الأساسي وتسبب تعارضاً.
 
     /**
      * الصفحة الرئيسية للإعدادات

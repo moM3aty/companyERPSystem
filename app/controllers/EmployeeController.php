@@ -1,147 +1,104 @@
 <?php
-// app/controllers/EmployeeController.php
+// المسار: app/controllers/EmployeeController.php
 
 class EmployeeController extends Controller {
     
+    private Employee $empModel;
+
     public function __construct() {
-        // التحقق من تسجيل الدخول تلقائياً
+        // حماية الوصول: يجب أن يكون مسجلاً للدخول
         $this->requireAuth();
+        $this->empModel = $this->model('Employee');
     }
 
-    // عرض قائمة الموظفين
-    public function index() {
-        $employeeModel = $this->model('Employee');
-        $data = [
-            'title' => 'إدارة الموظفين',
-            'employees' => $employeeModel->getEmployees(),
-            'flash' => $this->getFlash()
-        ];
-        $this->view('employees/index', $data);
-    }
-
-    // إضافة موظف جديد
-    public function create() {
-        $employeeModel = $this->model('Employee');
+    public function index(): void {
+        $employees = $this->empModel->getAllEmployees();
         
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        $data = [
+            'title' => 'إدارة الموظفين (HR)',
+            'employees' => $employees,
+            'breadcrumb' => [['label' => 'الموارد البشرية', 'url' => '#'], ['label' => 'الموظفين', 'url' => 'employee/index']]
+        ];
+        
+        // تمرير المحتوى للـ Layout ليتولى التغليف
+        ob_start();
+        $this->view('employee/index', $data);
+        $content = ob_get_clean();
+        
+        Layout::render($content, $data);
+    }
+
+    public function create(): void {
+        // التحقق من الصلاحيات (فقط الإدارة والـ HR من يحق لهم الإضافة)
+        $this->requireAnyRole(['admin', 'editor']);
+
+        if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            
             $data = [
-                'name' => trim($_POST['name']),
-                'email' => trim($_POST['email']),
-                'phone' => trim($_POST['phone']),
-                'position' => trim($_POST['position']),
-                'salary' => trim($_POST['salary']),
-                'department_id' => trim($_POST['department_id'])
+                'name'          => trim($_POST['name'] ?? ''),
+                'email'         => trim($_POST['email'] ?? ''),
+                'phone'         => trim($_POST['phone'] ?? ''),
+                'position'      => trim($_POST['position'] ?? ''),
+                'salary'        => (float)($_POST['salary'] ?? 0.00),
+                'department_id' => !empty($_POST['department_id']) ? (int)$_POST['department_id'] : null
             ];
 
-            // التحقق من البيانات (اختياري)
-            $errors = [];
-            if (empty($data['name'])) $errors[] = 'اسم الموظف مطلوب';
-            if (empty($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'بريد إلكتروني صحيح مطلوب';
-            }
-            if (empty($data['salary']) || $data['salary'] <= 0) {
-                $errors[] = 'الراتب يجب أن يكون أكبر من صفر';
-            }
-
-            if (empty($errors)) {
-                if ($employeeModel->addEmployee($data)) {
-                    $this->setFlash('success', 'تم إضافة الموظف "' . $data['name'] . '" بنجاح');
-                    $this->redirect('employee/index');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء إضافة الموظف (ربما البريد مكرر)');
-                    $this->redirect('employee/create');
-                }
-            } else {
-                $this->setFlash('error', implode(' | ', $errors));
+            // التحقق من البيانات الأساسية
+            if (empty($data['name']) || empty($data['email']) || empty($data['position'])) {
+                $this->setFlash('error', 'يرجى تعبئة جميع الحقول المطلوبة (الاسم، البريد، المسمى الوظيفي).');
                 $this->redirect('employee/create');
             }
-            exit();
-        } else {
-            $data = [
-                'title' => 'إضافة موظف جديد',
-                'departments' => $employeeModel->getDepartments(),
-                'flash' => $this->getFlash()
-            ];
-            $this->view('employees/create', $data);
-        }
-    }
 
-    // تعديل بيانات موظف
-    public function edit($id) {
-        $employeeModel = $this->model('Employee');
-        $employee = $employeeModel->getEmployeeById($id);
-        
-        if (!$employee) {
-            $this->setFlash('warning', 'الموظف غير موجود');
-            $this->redirect('employee/index');
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            $data = [
-                'name' => trim($_POST['name']),
-                'email' => trim($_POST['email']),
-                'phone' => trim($_POST['phone']),
-                'position' => trim($_POST['position']),
-                'salary' => trim($_POST['salary']),
-                'department_id' => trim($_POST['department_id'])
-            ];
-
-            // التحقق من البيانات
-            $errors = [];
-            if (empty($data['name'])) $errors[] = 'اسم الموظف مطلوب';
-            if (empty($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'بريد إلكتروني صحيح مطلوب';
-            }
-            if (empty($data['salary']) || $data['salary'] <= 0) {
-                $errors[] = 'الراتب يجب أن يكون أكبر من صفر';
+            // التأكد من عدم تكرار البريد
+            if ($this->empModel->emailExists($data['email'])) {
+                $this->setFlash('error', 'البريد الإلكتروني مسجل مسبقاً لموظف آخر.');
+                $this->redirect('employee/create');
             }
 
-            if (empty($errors)) {
-                if ($employeeModel->updateEmployee($data, $id)) {
-                    $this->setFlash('success', 'تم تحديث بيانات الموظف "' . $data['name'] . '" بنجاح');
-                    $this->redirect('employee/index');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء تعديل البيانات');
-                    $this->redirect('employee/edit/' . $id);
-                }
+            if ($this->empModel->create($data)) {
+                $this->setFlash('success', 'تم تسجيل بيانات الموظف بنجاح.');
+                $this->redirect('employee/index');
             } else {
-                $this->setFlash('error', implode(' | ', $errors));
-                $this->redirect('employee/edit/' . $id);
+                $this->setFlash('error', 'حدث خطأ غير متوقع أثناء الحفظ.');
+                $this->redirect('employee/create');
             }
-            exit();
         } else {
+            // جلب الأقسام لعرضها في النموذج
+            $departments = $this->empModel->getDepartments();
+            
             $data = [
-                'title' => 'تعديل بيانات موظف',
-                'employee' => $employee,
-                'departments' => $employeeModel->getDepartments(),
-                'flash' => $this->getFlash()
+                'title' => 'تسجيل موظف جديد',
+                'departments' => $departments,
+                'breadcrumb' => [
+                    ['label' => 'الموارد البشرية', 'url' => '#'],
+                    ['label' => 'الموظفين', 'url' => 'employee/index'],
+                    ['label' => 'إضافة موظف', 'url' => 'employee/create']
+                ]
             ];
-            $this->view('employees/edit', $data);
+            
+            ob_start();
+            $this->view('employee/create', $data);
+            $content = ob_get_clean();
+            
+            Layout::render($content, $data);
         }
     }
 
-    // حذف موظف
-    public function delete($id) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('employee/index');
-        }
-
-        $employeeModel = $this->model('Employee');
-        $employee = $employeeModel->getEmployeeById($id);
+    public function delete(string $id = ''): void {
+        $this->requireRole('admin'); // فقط المدير العام يمكنه الحذف
         
-        if (!$employee) {
-            $this->setFlash('warning', 'الموظف غير موجود');
-            $this->redirect('employee/index');
+        if ($this->isPost() && !empty($id) && is_numeric($id)) {
+            try {
+                if ($this->empModel->delete((int)$id)) {
+                    $this->setFlash('success', 'تم حذف الموظف من سجلات النظام بنجاح.');
+                } else {
+                    $this->setFlash('error', 'فشل في حذف بيانات الموظف.');
+                }
+            } catch (PDOException $e) {
+                $this->setFlash('error', 'لا يمكن حذف الموظف لوجود حركات مالية، رواتب، أو عهد مرتبطة به.');
+            }
         }
-
-        if ($employeeModel->deleteEmployee($id)) {
-            $this->setFlash('success', 'تم حذف الموظف "' . $employee->name . '" بنجاح');
-        } else {
-            $this->setFlash('error', 'حدث خطأ أثناء الحذف');
-        }
-        
         $this->redirect('employee/index');
     }
 }
