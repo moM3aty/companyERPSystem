@@ -3,36 +3,32 @@
 
 class QuoteController extends Controller {
     
+    private Quote $quoteModel;
+
     public function __construct() {
-        // حماية القسم ليسمح فقط للمستخدمين المسجلين بالدخول
         $this->requireAuth();
+        $this->quoteModel = $this->model('Quote');
     }
 
-    // عرض جميع عروض الأسعار (Quotations)
-    public function index() {
-        $db = Database::getInstance();
-        $db->query('
-            SELECT q.*, c.name as customer_name 
-            FROM quotes q
-            LEFT JOIN customers c ON q.customer_id = c.id
-            ORDER BY q.id DESC
-        ');
-        $quotes = $db->resultSet();
+    public function index(): void {
+        $quotes = $this->quoteModel->getAllQuotes();
         
         $data = [
-            'title' => 'عروض الأسعار',
+            'title' => 'عروض الأسعار (Quotations)',
             'quotes' => $quotes,
-            'flash' => $this->getFlash()
+            'breadcrumb' => [
+                ['label' => 'المبيعات', 'url' => '#'],
+                ['label' => 'عروض الأسعار', 'url' => 'quote/index']
+            ]
         ];
         
-        // سنقوم ببرمجة الواجهة الخاصة بها في الدفعة القادمة
+        ob_start();
         $this->view('quotes/index', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    // إنشاء عرض سعر جديد
-    public function create() {
-        $db = Database::getInstance();
-
+    public function create(): void {
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             
@@ -46,8 +42,7 @@ class QuoteController extends Controller {
                 $this->redirect('quote/create');
             }
 
-            // حساب الإجمالي
-            $totalAmount = 0;
+            $totalAmount = 0.0;
             $quoteItems = [];
             foreach ($items as $index => $prodId) {
                 $qty = (int)($quantities[$index] ?? 1);
@@ -56,7 +51,7 @@ class QuoteController extends Controller {
                     $subtotal = $qty * $price;
                     $totalAmount += $subtotal;
                     $quoteItems[] = [
-                        'product_id' => $prodId,
+                        'product_id' => (int)$prodId,
                         'quantity' => $qty,
                         'unit_price' => $price,
                         'subtotal' => $subtotal
@@ -64,28 +59,20 @@ class QuoteController extends Controller {
                 }
             }
 
-            $quoteNumber = 'QTE-' . date('Ym') . '-' . rand(1000, 9999);
+            $quoteData = [
+                'customer_id' => $customerId,
+                'total_amount' => $totalAmount
+            ];
             
-            // حفظ العرض في قاعدة البيانات
-            $db->query('
-                INSERT INTO quotes (quote_number, customer_id, total_amount, status, created_by)
-                VALUES (:qnum, :cid, :total, "draft", :uid)
-            ');
-            $db->bind(':qnum', $quoteNumber);
-            $db->bind(':cid', $customerId, PDO::PARAM_INT);
-            $db->bind(':total', $totalAmount);
-            $db->bind(':uid', $_SESSION['user_id'], PDO::PARAM_INT);
-            
-            if ($db->execute()) {
-                // ملاحظة: في تطبيق حقيقي سنقوم هنا بحفظ عناصر العرض ($quoteItems) في جدول quote_items
-                $this->setFlash('success', 'تم إنشاء عرض السعر بنجاح برقم ' . $quoteNumber);
+            if ($this->quoteModel->createQuote($quoteData, $quoteItems)) {
+                $this->setFlash('success', 'تم إنشاء عرض السعر بنجاح.');
                 $this->redirect('quote/index');
             } else {
-                $this->setFlash('error', 'حدث خطأ أثناء حفظ عرض السعر');
+                $this->setFlash('error', 'حدث خطأ أثناء حفظ عرض السعر.');
                 $this->redirect('quote/create');
             }
         } else {
-            // جلب البيانات اللازمة للنموذج
+            $db = Database::getInstance();
             $db->query('SELECT id, name FROM customers ORDER BY name ASC');
             $customers = $db->resultSet();
             
@@ -96,11 +83,50 @@ class QuoteController extends Controller {
                 'title' => 'إنشاء عرض سعر جديد',
                 'customers' => $customers,
                 'products' => $products,
-                'flash' => $this->getFlash()
+                'breadcrumb' => [['label' => 'عروض الأسعار', 'url' => 'quote/index'], ['label' => 'جديد', 'url' => '#']]
             ];
             
-            // سنقوم ببرمجة الواجهة الخاصة بها في الدفعة القادمة
+            ob_start();
             $this->view('quotes/create', $data);
+            $content = ob_get_clean();
+            Layout::render($content, $data);
         }
+    }
+
+    public function show(string $id = ''): void {
+        if (empty($id) || !is_numeric($id)) $this->redirect('quote/index');
+        
+        $quoteId = (int)$id;
+        $quote = $this->quoteModel->getQuoteById($quoteId);
+        
+        if (!$quote) {
+            $this->setFlash('error', 'عرض السعر غير موجود.');
+            $this->redirect('quote/index');
+        }
+
+        $items = $this->quoteModel->getQuoteItems($quoteId);
+        
+        $data = [
+            'title' => 'تفاصيل وطباعة عرض السعر',
+            'quote' => $quote,
+            'items' => $items,
+            'breadcrumb' => [['label' => 'عروض الأسعار', 'url' => 'quote/index'], ['label' => 'تفاصيل العرض', 'url' => '#']]
+        ];
+        
+        ob_start();
+        $this->view('quotes/view', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+    
+    public function changeStatus(string $id = ''): void {
+        if ($this->isPost() && !empty($id) && is_numeric($id)) {
+            $status = trim($_POST['status'] ?? '');
+            if (in_array($status, ['draft', 'sent', 'accepted', 'rejected'])) {
+                $this->quoteModel->updateStatus((int)$id, $status);
+                $this->setFlash('success', 'تم تحديث حالة عرض السعر.');
+            }
+        }
+        $this->redirect('quote/show/' . $id);
     }
 }

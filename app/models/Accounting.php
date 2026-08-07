@@ -10,17 +10,11 @@ class Accounting extends Model {
     // المصروفات
     // ==========================================
     
-    /**
-     * جلب كل المصروفات مرتبة بالأحدث
-     */
     public function getExpenses(): array {
         $this->db->query('SELECT * FROM expenses ORDER BY id DESC');
         return $this->db->resultSet();
     }
 
-    /**
-     * البحث في المصروفات
-     */
     public function searchExpenses(string $query): array {
         $this->db->query("SELECT * FROM expenses 
                           WHERE description LIKE :q 
@@ -30,9 +24,6 @@ class Accounting extends Model {
         return $this->db->resultSet();
     }
 
-    /**
-     * جلب المصروفات ضمن نطاق تاريخي
-     */
     public function getExpensesByDateRange(string $from, string $to): array {
         $this->db->query("SELECT * FROM expenses 
                           WHERE DATE(created_at) BETWEEN :from AND :to 
@@ -42,9 +33,6 @@ class Accounting extends Model {
         return $this->db->resultSet();
     }
 
-    /**
-     * إضافة مصروف جديد
-     */
     public function addExpense(array $data): bool {
         $this->db->query('INSERT INTO expenses (description, amount, category) 
                           VALUES (:desc, :amount, :cat)');
@@ -54,36 +42,24 @@ class Accounting extends Model {
         return $this->db->execute();
     }
 
-    /**
-     * حذف مصروف
-     */
     public function deleteExpense(int $id): bool {
         $this->db->query('DELETE FROM expenses WHERE id = :id');
         $this->db->bind(':id', $id, PDO::PARAM_INT);
         return $this->db->execute();
     }
 
-    /**
-     * جلب مصروف واحد
-     */
     public function getExpenseById(int $id): ?object {
         $this->db->query('SELECT * FROM expenses WHERE id = :id');
         $this->db->bind(':id', $id, PDO::PARAM_INT);
         return $this->db->single();
     }
 
-    /**
-     * إجمالي المصروفات الكلي
-     */
     public function getTotalExpenses(): float {
         $this->db->query('SELECT COALESCE(SUM(amount), 0) as total FROM expenses');
         $row = $this->db->single();
         return (float) ($row->total ?? 0);
     }
 
-    /**
-     * إجمالي المصروفات ضمن نطاق تاريخي
-     */
     public function getTotalExpensesByDateRange(string $from, string $to): float {
         $this->db->query("SELECT COALESCE(SUM(amount), 0) as total 
                           FROM expenses 
@@ -94,9 +70,6 @@ class Accounting extends Model {
         return (float) ($row->total ?? 0);
     }
 
-    /**
-     * توزيع المصروفات حسب التصنيف
-     */
     public function getExpenseDistribution(): array {
         $this->db->query('SELECT category, COUNT(*) as count, SUM(amount) as total 
                           FROM expenses 
@@ -106,9 +79,6 @@ class Accounting extends Model {
         return $this->db->resultSet();
     }
 
-    /**
-     * المصروفات الشهرية (للتقارير)
-     */
     public function getMonthlyExpenses(): array {
         $this->db->query("SELECT MONTH(created_at) - 1 as month_idx, 
                                  COALESCE(SUM(amount), 0) as total 
@@ -122,18 +92,12 @@ class Accounting extends Model {
     // المبيعات والفواتير
     // ==========================================
 
-    /**
-     * إجمالي المبيعات الكلي
-     */
     public function getTotalSales(): float {
         $this->db->query('SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices');
         $row = $this->db->single();
         return (float) ($row->total ?? 0);
     }
 
-    /**
-     * إجمالي المبيعات ضمن نطاق تاريخي
-     */
     public function getTotalSalesByDateRange(string $from, string $to): float {
         $this->db->query("SELECT COALESCE(SUM(total_amount), 0) as total 
                           FROM invoices 
@@ -144,9 +108,6 @@ class Accounting extends Model {
         return (float) ($row->total ?? 0);
     }
 
-    /**
-     * المبيعات الشهرية (للتقارير)
-     */
     public function getMonthlySales(): array {
         $this->db->query("SELECT MONTH(created_at) - 1 as month_idx, 
                                  COALESCE(SUM(total_amount), 0) as total 
@@ -156,18 +117,12 @@ class Accounting extends Model {
         return $this->db->resultSet();
     }
 
-    /**
-     * عدد الفواتير الكلي
-     */
     public function getInvoiceCount(): int {
         $this->db->query('SELECT COUNT(*) as total FROM invoices');
         $row = $this->db->single();
         return (int) ($row->total ?? 0);
     }
 
-    /**
-     * أعلى المنتجات مبيعاً (للتقارير)
-     */
     public function getTopProducts(int $limit = 10): array {
         $this->db->query('SELECT p.name, 
                                  SUM(ii.quantity) as total_units, 
@@ -182,12 +137,9 @@ class Accounting extends Model {
     }
 
     // ==========================================
-    // القيود اليومية (Journal Entries)
+    // القيود اليومية والدورة المحاسبية الآلية
     // ==========================================
 
-    /**
-     * جلب جميع القيود اليومية
-     */
     public function getJournalEntries(int $limit = 100): array {
         $this->db->query('
             SELECT je.*, u.name as created_by_name
@@ -200,9 +152,6 @@ class Accounting extends Model {
         return $this->db->resultSet();
     }
 
-    /**
-     * جلب قيد يومي محدد
-     */
     public function getJournalEntryById(int $id): ?object {
         $this->db->query('
             SELECT je.*, u.name as created_by_name
@@ -214,9 +163,6 @@ class Accounting extends Model {
         return $this->db->single();
     }
 
-    /**
-     * جلب سطور قيد يومي
-     */
     public function getJournalLines(int $entryId): array {
         $this->db->query('
             SELECT jl.*, coa.name as account_name, coa.code as account_code
@@ -230,7 +176,7 @@ class Accounting extends Model {
     }
 
     /**
-     * إنشاء قيد يومي جديد مع سطوره (باستخدام المعاملات)
+     * دالة عامة لإنشاء قيد يومية آلي أو يدوي
      */
     public function createJournalEntry(
         string $entryDate,
@@ -240,14 +186,22 @@ class Accounting extends Model {
         int $userId,
         array $lines
     ): int {
-        // $lines = [['account_id'=>1010, 'debit'=>1000, 'credit'=>0, 'description'=>'...'], ...]
         
+        $totalDebit = 0;
+        $totalCredit = 0;
+        foreach ($lines as $line) {
+            $totalDebit += (float)($line['debit'] ?? 0);
+            $totalCredit += (float)($line['credit'] ?? 0);
+        }
+
+        if (round($totalDebit, 2) !== round($totalCredit, 2)) {
+            throw new \Exception('القيد غير متزن: مجموع المدين لا يساوي مجموع الدائن.');
+        }
+
         $this->db->beginTransaction();
         try {
-            // إنشاء رقم القيد
             $entryNumber = 'JE-' . date('YmdHis') . rand(100, 999);
             
-            // إدخال القيد الرئيسي
             $this->db->query('
                 INSERT INTO journal_entries 
                 (entry_number, entry_date, description, reference_type, reference_id, created_by)
@@ -263,7 +217,6 @@ class Accounting extends Model {
             
             $entryId = (int) $this->db->lastInsertId();
             
-            // إدخال سطور القيد
             foreach ($lines as $line) {
                 $this->db->query('
                     INSERT INTO journal_lines 
@@ -276,6 +229,9 @@ class Accounting extends Model {
                 $this->db->bind(':credit', $line['credit'] ?? 0);
                 $this->db->bind(':desc', $line['description'] ?? null);
                 $this->db->execute();
+
+                // تحديث أرصدة شجرة الحسابات
+                $this->updateAccountBalance($line['account_id'], (float)($line['debit'] ?? 0), (float)($line['credit'] ?? 0));
             }
             
             $this->db->commit();
@@ -283,13 +239,25 @@ class Accounting extends Model {
             
         } catch (Exception $e) {
             $this->db->rollBack();
-            throw new \Exception('فشل إنشاء القيد: ' . $e->getMessage());
+            throw new \Exception('فشل إنشاء القيد المحاسبي: ' . $e->getMessage());
         }
     }
 
-    /**
-     * حساب رصيد حساب معين
-     */
+    private function updateAccountBalance(int $accountId, float $debit, float $credit): void {
+        $this->db->query("SELECT type FROM chart_of_accounts WHERE id = :id");
+        $this->db->bind(':id', $accountId, PDO::PARAM_INT);
+        $account = $this->db->single();
+        
+        if (!$account) return;
+
+        $amount = in_array($account->type, ['asset', 'expense']) ? ($debit - $credit) : ($credit - $debit);
+
+        $this->db->query("UPDATE chart_of_accounts SET balance = balance + :amount WHERE id = :id");
+        $this->db->bind(':amount', $amount);
+        $this->db->bind(':id', $accountId, PDO::PARAM_INT);
+        $this->db->execute();
+    }
+
     public function getAccountBalance(int $accountId): float {
         $this->db->query('
             SELECT COALESCE(SUM(debit), 0) - COALESCE(SUM(credit), 0) as balance
@@ -301,25 +269,6 @@ class Accounting extends Model {
         return $row ? (float) $row->balance : 0.0;
     }
 
-    /**
-     * حساب رصيد حساب في تاريخ معين
-     */
-    public function getAccountBalanceByDate(int $accountId, string $date): float {
-        $this->db->query('
-            SELECT COALESCE(SUM(jl.debit), 0) - COALESCE(SUM(jl.credit), 0) as balance
-            FROM journal_lines jl
-            JOIN journal_entries je ON jl.journal_entry_id = je.id
-            WHERE jl.account_id = :aid AND je.entry_date <= :date
-        ');
-        $this->db->bind(':aid', $accountId, PDO::PARAM_INT);
-        $this->db->bind(':date', $date);
-        $row = $this->db->single();
-        return $row ? (float) $row->balance : 0.0;
-    }
-
-    /**
-     * ميزان المراجعة (Trial Balance)
-     */
     public function getTrialBalance(): array {
         $this->db->query('
             SELECT 
@@ -344,9 +293,6 @@ class Accounting extends Model {
     // الإعدادات
     // ==========================================
 
-    /**
-     * جلب إعداد واحد
-     */
     public function getSetting(string $key): ?string {
         $this->db->query('SELECT setting_value FROM settings WHERE setting_key = :key LIMIT 1');
         $this->db->bind(':key', $key);
@@ -354,9 +300,6 @@ class Accounting extends Model {
         return $row ? $row->setting_value : null;
     }
 
-    /**
-     * تحديث إعداد
-     */
     public function updateSetting(string $key, string $value): bool {
         $this->db->query('
             INSERT INTO settings (setting_key, setting_value) 
@@ -369,9 +312,6 @@ class Accounting extends Model {
         return $this->db->execute();
     }
 
-    /**
-     * جلب جميع الإعدادات
-     */
     public function getAllSettings(): array {
         $this->db->query('SELECT * FROM settings ORDER BY setting_key ASC');
         return $this->db->resultSet();

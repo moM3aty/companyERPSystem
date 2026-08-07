@@ -144,7 +144,7 @@ class Session {
         if ($lastActivity > 0 && (time() - $lastActivity) > $timeout) {
             self::logout();
             self::setFlash('warning', 'انتهت وقت الجلسة، يرجى تسجيل الدخول مرة أخرى');
-            header("Location: " . URL_ROOT . '/auth/login');
+            header("Location: " . URLROOT . '/auth/login');
             exit();
         }
         

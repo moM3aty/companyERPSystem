@@ -136,7 +136,7 @@ $currentUrl = 'account/trial-balance';
                 <div class="su-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'مدير النظام'); ?></div>
                 <div class="su-role"><?php echo htmlspecialchars($_SESSION['user_role'] ?? 'admin'); ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -147,7 +147,7 @@ $currentUrl = 'account/trial-balance';
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>المحاسبة</span>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>

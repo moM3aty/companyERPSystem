@@ -1,4 +1,5 @@
 <?php
+// المسار: app/controllers/CollectionController.php
 require_once 'app/models/SalesCollection.php';
 require_once 'app/models/Invoice.php'; // لافتراض وجوده لجلب الفواتير المستحقة
 

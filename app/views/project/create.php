@@ -1,76 +1,72 @@
 <?php
 // app/views/project/create.php
-$flash = $data['flash'] ?? null;
-$customers = $data['customers'] ?? [];
-$employees = $data['employees'] ?? [];
+$customers = $customers ?? ($data['customers'] ?? []);
+$employees = $employees ?? ($data['employees'] ?? []);
 ?>
-<div class="page-body">
-    <?php if ($flash) : ?>
-        <div class="flash-msg flash-<?php echo $flash['type']; ?>">...</div>
-    <?php endif; ?>
 
-    <div class="form-card">
-        <form action="<?php echo URL_ROOT; ?>/project/create" method="POST">
-            <div class="form-section">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>اسم المشروع</label>
-                        <input type="text" name="name" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label>الكود</label>
-                        <input type="text" name="code" class="form-input" placeholder="مثل: PRJ-001" required>
-                    </div>
-                    <div class="form-group">
-                        <label>العميل</label>
-                        <select name="customer_id" class="form-input">
-                            <option value="">-- بدون عميل --</option>
-                            <?php foreach ($customers as $c) : ?>
-                                <option value="<?php echo $c->id; ?>"><?php echo $c->name; ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>مدير المشروع</label>
-                        <select name="project_manager" class="form-input">
-                            <option value="">-- اختر --</option>
-                            <?php foreach ($employees as $emp) : ?>
-                                <option value="<?php echo $emp->id; ?>"><?php echo $emp->name; ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>تاريخ البداية</label>
-                        <input type="date" name="start_date" class="form-input">
-                    </div>
-                    <div class="form-group">
-                        <label>تاريخ النهاية</label>
-                        <input type="date" name="end_date" class="form-input">
-                    </div>
-                    <div class="form-group">
-                        <label>الميزانية</label>
-                        <input type="number" name="budget" class="form-input" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label>الحالة</label>
-                        <select name="status" class="form-input">
-                            <option value="planning">تخطيط</option>
-                            <option value="active">نشط</option>
-                            <option value="on_hold">متوقف مؤقتًا</option>
-                            <option value="completed">مكتمل</option>
-                            <option value="cancelled">ملغي</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>الوصف</label>
-                        <textarea name="description" class="form-input" rows="3"></textarea>
-                    </div>
+<div class="card" style="max-width: 900px; margin: 0 auto;">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-diagram-project text-primary"></i> تسجيل مشروع جديد</h3>
+    </div>
+
+    <form action="<?php echo URLROOT; ?>/project/create" method="POST">
+        <div class="card-body">
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label">اسم المشروع <span class="required">*</span></label>
+                    <input type="text" name="name" class="form-control" required placeholder="مثال: تنفيذ البنية التحتية لفرع جدة">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">كود المشروع (Code) <span class="required">*</span></label>
+                    <input type="text" name="code" class="form-control font-monospace" required style="direction:ltr; text-align:right;" placeholder="PRJ-2024-001">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">العميل المرتبط</label>
+                    <select name="customer_id" class="form-control">
+                        <option value="">-- مشروع داخلي (بدون عميل) --</option>
+                        <?php foreach($customers as $c): ?>
+                            <option value="<?php echo $c->id; ?>"><?php echo htmlspecialchars($c->name); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">تاريخ البدء</label>
+                    <input type="date" name="start_date" class="form-control" value="<?php echo date('Y-m-d'); ?>">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">تاريخ التسليم المتوقع</label>
+                    <input type="date" name="end_date" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">الميزانية المخصصة (Budget)</label>
+                    <input type="number" name="budget" step="0.01" min="0" class="form-control font-monospace text-success fw-bold" value="0.00" style="direction:ltr; text-align:right;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">مدير المشروع (PM)</label>
+                    <select name="project_manager" class="form-control">
+                        <option value="">-- غير معين --</option>
+                        <?php foreach($employees as $e): ?>
+                            <option value="<?php echo $e->id; ?>"><?php echo htmlspecialchars($e->name); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">وصف ونطاق المشروع</label>
+                    <textarea name="description" class="form-control" rows="3"></textarea>
                 </div>
             </div>
-            <div class="form-actions">
-                <button type="submit" class="btn-submit"><i class="fas fa-save"></i> حفظ</button>
-                <a href="<?php echo URL_ROOT; ?>/project/index" class="btn-cancel">إلغاء</a>
-            </div>
-        </form>
-    </div>
+        </div>
+        
+        <div class="card-footer d-flex gap-3">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> حفظ المشروع</button>
+            <a href="<?php echo URLROOT; ?>/project/index" class="btn btn-secondary">إلغاء</a>
+        </div>
+    </form>
 </div>

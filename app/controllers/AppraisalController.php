@@ -1,9 +1,8 @@
 <?php
-// app/controllers/AppraisalController.php
+// المسار: app/controllers/AppraisalController.php
 
 class AppraisalController extends Controller {
     
-    /** @var Appraisal */
     private Appraisal $appraisalModel;
 
     public function __construct() {
@@ -19,10 +18,16 @@ class AppraisalController extends Controller {
             'title' => 'تقييم أداء الموظفين',
             'appraisals' => $appraisals,
             'is_admin' => $isAdmin,
-            'flash' => $this->getFlash()
+            'breadcrumb' => [
+                ['label' => 'الموارد البشرية', 'url' => '#'],
+                ['label' => 'التقييمات', 'url' => 'appraisal/index']
+            ]
         ];
         
+        ob_start();
         $this->view('appraisals/index', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
     public function create(): void {
@@ -35,10 +40,8 @@ class AppraisalController extends Controller {
             $behav = (int)($_POST['behavior_score'] ?? 0);
             $attend = (int)($_POST['attendance_score'] ?? 0);
             
-            // حساب المتوسط بدقة
             $totalScore = ($perf + $behav + $attend) / 3;
             
-            // تحديد التقدير العام
             $grade = match(true) {
                 $totalScore >= 90 => 'ممتاز',
                 $totalScore >= 80 => 'جيد جداً',
@@ -79,16 +82,21 @@ class AppraisalController extends Controller {
             $data = [
                 'title' => 'تقييم موظف',
                 'employees' => $employees,
-                'flash' => $this->getFlash()
+                'breadcrumb' => [
+                    ['label' => 'التقييمات', 'url' => 'appraisal/index'],
+                    ['label' => 'تقييم جديد', 'url' => '#']
+                ]
             ];
             
+            ob_start();
             $this->view('appraisals/create', $data);
+            $content = ob_get_clean();
+            Layout::render($content, $data);
         }
     }
 
     public function delete(string $id = ''): void {
         $this->requireRole('admin');
-        
         if ($this->isPost() && !empty($id) && is_numeric($id)) {
             if ($this->appraisalModel->delete((int)$id)) {
                 $this->setFlash('success', 'تم حذف التقييم بنجاح.');

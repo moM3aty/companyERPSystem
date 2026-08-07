@@ -133,7 +133,7 @@ $currentUrl = 'warehouse/transfers';
                 <div class="su-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'مدير النظام'); ?></div>
                 <div class="su-role"><?php echo htmlspecialchars($_SESSION['user_role'] ?? 'admin'); ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -144,7 +144,7 @@ $currentUrl = 'warehouse/transfers';
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>المستودعات ونقل المخزون</span>
                     </div>
@@ -166,7 +166,7 @@ $currentUrl = 'warehouse/transfers';
                     <h3><i class="fas fa-truck-ramp-box"></i> سجل حركات النقل الداخلي</h3>
                 </div>
                 <div>
-                    <a href="<?php echo URL_ROOT; ?>/warehouse/create-transfer" class="btn-add">
+                    <a href="<?php echo URLROOT; ?>/warehouse/create-transfer" class="btn-add">
                         <i class="fas fa-plus"></i> أمر نقل جديد
                     </a>
                 </div>
@@ -239,7 +239,7 @@ $currentUrl = 'warehouse/transfers';
                                         <i class="fas fa-arrows-left-right"></i>
                                         <h4>لا توجد عمليات نقل مخزون</h4>
                                         <p>قم بإنشاء أمر نقل لتحريك البضائع بين المستودعات والفروع</p>
-                                        <a href="<?php echo URL_ROOT; ?>/warehouse/create-transfer" class="btn-add" style="display:inline-flex;">
+                                        <a href="<?php echo URLROOT; ?>/warehouse/create-transfer" class="btn-add" style="display:inline-flex;">
                                             <i class="fas fa-plus"></i> نقل مخزون جديد
                                         </a>
                                     </div>

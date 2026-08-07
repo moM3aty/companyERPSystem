@@ -1,130 +1,237 @@
 <?php
-// المسار: app/views/opportunity/index.php
-$opportunities = $data['opportunities'] ?? [];
+// app/views/opportunity/index.php
+$groupedOpps = $data['groupedOpps'] ?? [];
+$pipelineValue = $data['pipelineValue'] ?? 0;
+
+$columns = [
+    'qualification' => ['title' => 'التأهيل', 'icon' => 'fa-filter', 'color' => 'var(--info)'],
+    'proposal'      => ['title' => 'تقديم العرض', 'icon' => 'fa-file-signature', 'color' => 'var(--primary)'],
+    'negotiation'   => ['title' => 'التفاوض', 'icon' => 'fa-comments-dollar', 'color' => 'var(--accent)'],
+    'closed_won'    => ['title' => 'تم الفوز', 'icon' => 'fa-trophy', 'color' => 'var(--success)'],
+    'closed_lost'   => ['title' => 'الخسارة', 'icon' => 'fa-xmark-circle', 'color' => 'var(--danger)']
+];
 ?>
 
-<div class="toolbar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
+<div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--text-dark); display:flex; align-items:center; gap:8px;">
-            <i class="fas fa-bullseye" style="color:var(--primary);"></i> إدارة الفرص البيعية (Opportunities)
-        </h3>
-        <p style="margin:4px 0 0; font-size:13px; color:var(--text-muted);">تتبع المبيعات المحتملة وتحويل العملاء المحتملين إلى مبيعات</p>
+        <h3 class="mb-0 text-dark"><i class="fas fa-bullseye text-primary"></i> مسار الفرص البيعية (Pipeline)</h3>
+        <p class="text-muted mt-1" style="font-size: 13px;">اسحب وأفلت الفرص لتحديث مراحل المبيعات.</p>
     </div>
-
-    <div style="display:flex; gap:10px;">
-        <a href="<?php echo URL_ROOT; ?>/opportunity/create" style="padding:10px 20px; background:var(--primary); color:#fff; border-radius:8px; text-decoration:none; font-size:13px; font-weight:700; display:inline-flex; align-items:center; gap:8px; transition:0.2s; box-shadow:0 4px 10px rgba(20,184,166,0.2);">
+    <div class="d-flex align-items-center gap-3">
+        <div class="bg-white border rounded px-3 py-2 text-dark shadow-sm">
+            <span class="text-muted fs-6 fw-bold me-2">قيمة الفرص النشطة:</span>
+            <span class="font-monospace fs-5 fw-bold text-success" style="direction:ltr;"><?php echo number_format($pipelineValue, 2); ?> ر.س</span>
+        </div>
+        <a href="<?php echo URLROOT; ?>/opportunity/create" class="btn btn-primary">
             <i class="fas fa-plus"></i> إضافة فرصة
         </a>
     </div>
 </div>
 
-<div style="background:var(--card-bg); border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow-sm); overflow:hidden;">
-    <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; text-align:right;">
-            <thead style="background:#f8fafc; border-bottom:2px solid var(--border);">
-                <tr>
-                    <th style="padding:14px 20px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">#</th>
-                    <th style="padding:14px 20px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">اسم الفرصة / العميل</th>
-                    <th style="padding:14px 20px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">المرحلة (Stage)</th>
-                    <th style="padding:14px 20px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">القيمة المتوقعة</th>
-                    <th style="padding:14px 20px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">تاريخ الإغلاق</th>
-                    <th style="padding:14px 20px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; text-align:center;">إجراء</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($opportunities)): foreach ($opportunities as $opp):
-                        $stageClass = match ($opp->stage) {
-                            'qualification' => 'badge-info',
-                            'proposal' => 'badge-primary',
-                            'negotiation' => 'badge-warning',
-                            'closed_won' => 'badge-success',
-                            'closed_lost' => 'badge-danger',
-                            default => 'badge-secondary'
-                        };
-                        $stageLabel = match ($opp->stage) {
-                            'qualification' => 'تأهيل',
-                            'proposal' => 'تقديم عرض',
-                            'negotiation' => 'تفاوض',
-                            'closed_won' => 'تم الفوز',
-                            'closed_lost' => 'تمت الخسارة',
-                            default => $opp->stage
-                        };
-                ?>
-                        <tr style="border-bottom:1px solid var(--border); transition:background 0.2s;">
-                            <td style="padding:14px 20px; color:var(--text-muted); font-size:12px; font-weight:600;"><?php echo $opp->id; ?></td>
-                            <td style="padding:14px 20px;">
-                                <div style="font-weight:700; color:var(--text-dark); margin-bottom:2px;"><?php echo htmlspecialchars($opp->title); ?></div>
-                                <div style="font-size:12px; color:var(--text-muted);"><i class="fas fa-building"></i> <?php echo htmlspecialchars($opp->customer_name); ?></div>
-                            </td>
-                            <td style="padding:14px 20px;">
-                                <span class="badge <?php echo $stageClass; ?>" style="padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;"><?php echo $stageLabel; ?></span>
-                            </td>
-                            <td style="padding:14px 20px; font-weight:700; color:var(--success); direction:ltr; text-align:right;">
-                                <?php echo number_format($opp->estimated_value, 2); ?> <span style="font-size:10px; color:var(--text-muted);">ر.س</span>
-                            </td>
-                            <td style="padding:14px 20px; font-size:13px; color:var(--text-body);">
-                                <?php if ($opp->expected_close_date): ?>
-                                    <i class="far fa-calendar-alt"></i> <?php echo date('Y-m-d', strtotime($opp->expected_close_date)); ?>
-                                <?php else: ?>
-                                    <span style="color:var(--text-muted);">غير محدد</span>
-                                <?php endif; ?>
-                            </td>
-                            <td style="padding:14px 20px; text-align:center;">
-                                <a href="<?php echo URL_ROOT; ?>/opportunity/show/<?php echo $opp->id; ?>" style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:8px; background:var(--primary-light); color:var(--primary-dark); text-decoration:none;" title="عرض الفرصة">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                            </td>
-                        </tr>
-                    <?php endforeach;
-                else: ?>
-                    <tr>
-                        <td colspan="6" style="text-align:center; padding:60px 20px;">
-                            <i class="fas fa-bullseye" style="font-size:40px; color:var(--border); margin-bottom:12px;"></i>
-                            <h4 style="margin:0 0 6px; font-size:15px; color:var(--text-dark);">لا توجد فرص بيعية</h4>
-                            <p style="margin:0; font-size:13px; color:var(--text-muted);">ابدأ بإضافة فرص جديدة لتتبع المبيعات المحتملة.</p>
-                        </td>
-                    </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+<!-- رسالة AJAX -->
+<div id="toastNotification" class="alert alert-success" style="display: none; position: fixed; bottom: 20px; left: 20px; z-index: 9999; box-shadow: var(--shadow-md);">
+    <i class="fas fa-check-circle"></i> تم تحديث مرحلة الفرصة بنجاح!
+</div>
+
+<!-- لوحة الكانبان (Kanban Board) -->
+<div class="kanban-board">
+    <?php foreach ($columns as $stageKey => $colDef): ?>
+        <?php
+            // حساب القيمة الإجمالية للفرص في هذا العمود
+            $colValue = 0;
+            foreach ($groupedOpps[$stageKey] as $opp) {
+                $colValue += $opp->estimated_value;
+            }
+        ?>
+        <div class="kanban-col" data-stage="<?php echo $stageKey; ?>" style="border-top: 4px solid <?php echo $colDef['color']; ?>;">
+            <div class="k-header">
+                <div>
+                    <div class="fw-bold text-dark" style="font-size: 15px;">
+                        <i class="fas <?php echo $colDef['icon']; ?>" style="color: <?php echo $colDef['color']; ?>; margin-left: 5px;"></i>
+                        <?php echo $colDef['title']; ?>
+                    </div>
+                    <div class="font-monospace fw-bold mt-1" style="font-size: 12px; color: <?php echo $colDef['color']; ?>;" id="val-<?php echo $stageKey; ?>">
+                        <?php echo number_format($colValue, 0); ?> ر.س
+                    </div>
+                </div>
+                <span class="badge badge-secondary fs-6" id="count-<?php echo $stageKey; ?>"><?php echo count($groupedOpps[$stageKey]); ?></span>
+            </div>
+            
+            <div class="k-cards" id="cards-<?php echo $stageKey; ?>">
+                <?php foreach ($groupedOpps[$stageKey] as $opp): ?>
+                    <div class="k-card" draggable="true" data-id="<?php echo $opp->id; ?>" data-value="<?php echo $opp->estimated_value; ?>">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="k-title fw-bold text-dark" style="font-size: 14px;"><a href="<?php echo URLROOT; ?>/opportunity/edit/<?php echo $opp->id; ?>" class="text-dark"><?php echo htmlspecialchars($opp->title); ?></a></div>
+                            <div class="dropdown">
+                                <span class="font-monospace fw-bold text-success fs-6" style="direction:ltr;"><?php echo number_format($opp->estimated_value, 0); ?></span>
+                            </div>
+                        </div>
+                        
+                        <div class="k-company text-muted mb-2" style="font-size: 12px;">
+                            <i class="fas fa-building"></i> <?php echo htmlspecialchars($opp->customer_name ?? 'بدون عميل'); ?>
+                        </div>
+                        
+                        <div class="k-meta d-flex justify-content-between align-items-center pt-2" style="border-top: 1px dashed var(--border);">
+                            <span class="text-muted" style="font-size: 11px;"><i class="far fa-calendar-check text-info"></i> <?php echo $opp->expected_close_date ? date('M d', strtotime($opp->expected_close_date)) : 'غير محدد'; ?></span>
+                            <div class="k-avatar" title="المسؤول: <?php echo htmlspecialchars($opp->assigned_name ?? 'غير معين'); ?>" style="width: 24px; height: 24px; border-radius: 50%; background: var(--primary-light); color: var(--primary-dark); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">
+                                <?php echo mb_substr($opp->assigned_name ?? '؟', 0, 2); ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endforeach; ?>
 </div>
 
 <style>
-    /* CSS classes for badges */
-    .badge-info {
-        background-color: var(--info-light);
-        color: var(--info-dark);
-        border: 1px solid var(--info);
+    .kanban-board {
+        display: flex;
+        gap: 20px;
+        overflow-x: auto;
+        padding-bottom: 20px;
+        min-height: 65vh;
+        align-items: flex-start;
     }
-
-    .badge-primary {
-        background-color: var(--primary-light);
-        color: var(--primary-dark);
-        border: 1px solid var(--primary);
-    }
-
-    .badge-warning {
-        background-color: var(--accent-light);
-        color: #b45309;
-        border: 1px solid var(--accent);
-    }
-
-    .badge-success {
-        background-color: var(--success-light);
-        color: #15803d;
-        border: 1px solid var(--success);
-    }
-
-    .badge-danger {
-        background-color: var(--danger-light);
-        color: #dc2626;
-        border: 1px solid var(--danger);
-    }
-
-    .badge-secondary {
-        background-color: var(--page-bg);
-        color: var(--text-muted);
+    
+    .kanban-col {
+        background: #f8fafc;
         border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 300px;
+        min-width: 300px;
+        display: flex;
+        flex-direction: column;
+        max-height: 100%;
+    }
+    
+    .k-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        background: #fff;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .k-cards {
+        padding: 16px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow-y: auto;
+        min-height: 150px;
+        transition: background 0.2s;
+    }
+    
+    .k-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        cursor: grab;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .k-card:active {
+        cursor: grabbing;
+    }
+    
+    .k-card:hover {
+        box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+        border-color: var(--primary-light);
+    }
+    
+    .k-card.dragging {
+        opacity: 0.5;
+        transform: scale(0.95);
+    }
+    
+    .drag-over {
+        background: #e2e8f0 !important;
+        border-radius: 8px;
     }
 </style>
+
+<script>
+    const cards = document.querySelectorAll('.k-card');
+    const columns = document.querySelectorAll('.kanban-col');
+
+    cards.forEach(card => {
+        card.addEventListener('dragstart', () => {
+            card.classList.add('dragging');
+            card.dataset.sourceStage = card.closest('.kanban-col').dataset.stage;
+        });
+
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+        });
+    });
+
+    columns.forEach(col => {
+        const cardsContainer = col.querySelector('.k-cards');
+        
+        col.addEventListener('dragover', e => {
+            e.preventDefault(); 
+            cardsContainer.classList.add('drag-over');
+        });
+
+        col.addEventListener('dragleave', e => {
+            cardsContainer.classList.remove('drag-over');
+        });
+
+        col.addEventListener('drop', e => {
+            e.preventDefault();
+            cardsContainer.classList.remove('drag-over');
+            
+            const draggingCard = document.querySelector('.dragging');
+            if(draggingCard) {
+                cardsContainer.appendChild(draggingCard);
+                
+                const newStage = col.dataset.stage;
+                const oldStage = draggingCard.dataset.sourceStage;
+                
+                if(newStage !== oldStage) {
+                    updateOpportunityStageAjax(draggingCard.dataset.id, newStage, oldStage, draggingCard.dataset.value);
+                    draggingCard.dataset.sourceStage = newStage; 
+                }
+            }
+        });
+    });
+
+    function updateOpportunityStageAjax(oppId, newStage, oldStage, valStr) {
+        // تحديث العدادات محلياً
+        const newCountEl = document.getElementById('count-' + newStage);
+        const oldCountEl = document.getElementById('count-' + oldStage);
+        newCountEl.textContent = parseInt(newCountEl.textContent) + 1;
+        oldCountEl.textContent = parseInt(oldCountEl.textContent) - 1;
+
+        // إرسال طلب السيرفر
+        fetch('<?php echo URLROOT; ?>/opportunity/updateStageAjax', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `id=${oppId}&stage=${newStage}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                const toast = document.getElementById('toastNotification');
+                toast.style.display = 'block';
+                setTimeout(() => { toast.style.display = 'none'; }, 3000);
+            } else {
+                alert('حدث خطأ أثناء التحديث.');
+                location.reload(); 
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('انقطع الاتصال.');
+        });
+    }
+</script>

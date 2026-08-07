@@ -1,5 +1,5 @@
 <?php
-// app/controllers/UserController.php
+// المسار: app/controllers/UserController.php
 
 class UserController extends Controller {
     
@@ -17,10 +17,9 @@ class UserController extends Controller {
         $data = [
             'title' => 'المستخدمين والصلاحيات',
             'users' => $users,
-            'breadcrumb' => [['label' => 'المستخدمين', 'url' => 'users/index']]
+            'breadcrumb' => [['label' => 'المستخدمين', 'url' => 'user/index']]
         ];
         
-        // نمرر المحتوى إلى كلاس Layout ليتولى تغليفه بالقالب الرئيسي
         ob_start();
         $this->view('users/index', $data);
         $content = ob_get_clean();
@@ -74,6 +73,63 @@ class UserController extends Controller {
         }
     }
 
+    public function edit(string $id = ''): void {
+        if (empty($id) || !is_numeric($id)) $this->redirect('user/index');
+        
+        $userId = (int)$id;
+        $user = $this->userModel->getUserById($userId);
+
+        if (!$user) {
+            $this->setFlash('error', 'المستخدم المطلوب غير موجود.');
+            $this->redirect('user/index');
+        }
+
+        if ($this->isPost()) {
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            
+            $data = [
+                'name'     => trim($_POST['name'] ?? ''),
+                'email'    => trim($_POST['email'] ?? ''),
+                'password' => $_POST['password'] ?? '', // اختياري
+                'role'     => trim($_POST['role'] ?? 'viewer'),
+                'phone'    => trim($_POST['phone'] ?? '')
+            ];
+
+            if (empty($data['name']) || empty($data['email'])) {
+                $this->setFlash('error', 'يرجى تعبئة الحقول الأساسية (الاسم والبريد).');
+                $this->redirect('user/edit/' . $userId);
+            }
+
+            if ($this->userModel->emailExists($data['email'], $userId)) {
+                $this->setFlash('error', 'البريد الإلكتروني مسجل مسبقاً لمستخدم آخر.');
+                $this->redirect('user/edit/' . $userId);
+            }
+
+            if ($this->userModel->updateUser($userId, $data)) {
+                $this->setFlash('success', 'تم تحديث بيانات وحساب المستخدم بنجاح.');
+                $this->redirect('user/index');
+            } else {
+                $this->setFlash('error', 'حدث خطأ أثناء التحديث.');
+                $this->redirect('user/edit/' . $userId);
+            }
+        } else {
+            $data = [
+                'title' => 'تعديل مستخدم',
+                'user' => $user,
+                'breadcrumb' => [
+                    ['label' => 'المستخدمين', 'url' => 'user/index'],
+                    ['label' => 'تعديل مستخدم', 'url' => '#']
+                ]
+            ];
+            
+            ob_start();
+            $this->view('users/edit', $data);
+            $content = ob_get_clean();
+            
+            Layout::render($content, $data);
+        }
+    }
+
     public function delete(string $id = ''): void {
         if ($this->isPost() && !empty($id) && is_numeric($id)) {
             $userId = (int)$id;
@@ -87,7 +143,7 @@ class UserController extends Controller {
             if ($this->userModel->delete($userId)) {
                 $this->setFlash('success', 'تم حذف المستخدم من النظام بنجاح.');
             } else {
-                $this->setFlash('error', 'فشل في حذف المستخدم.');
+                $this->setFlash('error', 'فشل في حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى.');
             }
         }
         $this->redirect('user/index');

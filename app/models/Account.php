@@ -1,5 +1,5 @@
 <?php
-// المسار: app/models/Account.php
+// app/models/Account.php
 
 class Account extends Model {
     
@@ -8,11 +8,7 @@ class Account extends Model {
         $this->table = 'chart_of_accounts';
     }
 
-    /**
-     * جلب جميع الحسابات لترتيب دليل الحسابات
-     */
     public function getChartOfAccounts(): array {
-        // جلب الحسابات مع اسم الحساب الأب (إن وجد)
         $sql = "SELECT a.*, p.name as parent_name 
                 FROM {$this->table} a 
                 LEFT JOIN {$this->table} p ON a.parent_id = p.id 
@@ -21,29 +17,30 @@ class Account extends Model {
         return $this->db->resultSet();
     }
 
-    /**
-     * جلب الحسابات الرئيسية (للاستخدام كآباء)
-     */
     public function getParentAccounts(): array {
         $sql = "SELECT id, code, name, type FROM {$this->table} ORDER BY code ASC";
         $this->db->query($sql);
         return $this->db->resultSet();
     }
 
-    /**
-     * التحقق من تكرار كود الحساب
-     */
-    public function codeExists(string $code): bool {
+    public function findById(int $id): ?object {
+        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id LIMIT 1");
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        return $this->db->single();
+    }
+
+    public function codeExists(string $code, ?int $excludeId = null): bool {
+        if (empty($code)) return false;
         $sql = "SELECT id FROM {$this->table} WHERE code = :code";
+        if ($excludeId) $sql .= " AND id != :exclude_id";
+        
         $this->db->query($sql);
         $this->db->bind(':code', $code);
+        if ($excludeId) $this->db->bind(':exclude_id', $excludeId, PDO::PARAM_INT);
         $this->db->execute();
         return $this->db->rowCount() > 0;
     }
 
-    /**
-     * إضافة حساب جديد
-     */
     public function createAccount(array $data): bool {
         $sql = "INSERT INTO {$this->table} (code, name, type, parent_id, balance, is_active, created_at) 
                 VALUES (:code, :name, :type, :parent_id, :balance, 1, NOW())";
@@ -55,6 +52,28 @@ class Account extends Model {
         $this->db->bind(':parent_id', $data['parent_id'], PDO::PARAM_INT);
         $this->db->bind(':balance', $data['balance']);
         
+        return $this->db->execute();
+    }
+
+    public function updateAccount(int $id, array $data): bool {
+        $sql = "UPDATE {$this->table} 
+                SET code = :code, name = :name, type = :type, parent_id = :parent_id, balance = :balance 
+                WHERE id = :id";
+                
+        $this->db->query($sql);
+        $this->db->bind(':code', $data['code']);
+        $this->db->bind(':name', $data['name']);
+        $this->db->bind(':type', $data['type']);
+        $this->db->bind(':parent_id', $data['parent_id'], PDO::PARAM_INT);
+        $this->db->bind(':balance', $data['balance']);
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        
+        return $this->db->execute();
+    }
+
+    public function deleteAccount(int $id): bool {
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id");
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
         return $this->db->execute();
     }
 }

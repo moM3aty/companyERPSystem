@@ -16,7 +16,7 @@ define('APP_ENV', 'development');
 if (!defined('APP_ROOT')) {
     define('APP_ROOT', dirname(__DIR__));
 }
-define('URL_ROOT', 'http://localhost/companyErpSystem/public');
+define('URLROOT', 'http://localhost/companyErpSystem/public');
 define('APP_VERSION', '2.0.0');
 
 // ============================

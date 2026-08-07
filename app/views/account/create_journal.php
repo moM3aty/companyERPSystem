@@ -162,7 +162,7 @@ $currentUrl = 'account/create-journal';
                 <div class="su-name"><?php echo $_SESSION['user_name'] ?? 'مدير النظام'; ?></div>
                 <div class="su-role"><?php echo $_SESSION['user_role'] ?? 'admin'; ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -173,9 +173,9 @@ $currentUrl = 'account/create-journal';
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
-                        <a href="<?php echo URL_ROOT; ?>/account/ledger">دفتر الأستاذ</a>
+                        <a href="<?php echo URLROOT; ?>/account/ledger">دفتر الأستاذ</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>قيد جديد</span>
                     </div>
@@ -198,7 +198,7 @@ $currentUrl = 'account/create-journal';
             </div>
 
             <div class="form-card">
-                <form action="<?php echo URL_ROOT; ?>/account/create-journal" method="POST" id="journalForm">
+                <form action="<?php echo URLROOT; ?>/account/create-journal" method="POST" id="journalForm">
                     
                     <div class="form-section">
                         <div class="form-section-title">
@@ -279,7 +279,7 @@ $currentUrl = 'account/create-journal';
                         <button type="submit" class="btn-submit" id="btnSubmit" disabled>
                             <i class="fas fa-save"></i> حفظ القيد
                         </button>
-                        <a href="<?php echo URL_ROOT; ?>/account/ledger" class="btn-cancel">إلغاء</a>
+                        <a href="<?php echo URLROOT; ?>/account/ledger" class="btn-cancel">إلغاء</a>
                     </div>
                 </form>
             </div>

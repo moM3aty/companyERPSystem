@@ -146,7 +146,7 @@ $currentUrl = 'account/ledger';
                 <div class="su-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'مدير النظام'); ?></div>
                 <div class="su-role"><?php echo htmlspecialchars($_SESSION['user_role'] ?? 'admin'); ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -157,16 +157,16 @@ $currentUrl = 'account/ledger';
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
-                        <a href="<?php echo URL_ROOT; ?>/account/ledger">دفتر الأستاذ</a>
+                        <a href="<?php echo URLROOT; ?>/account/ledger">دفتر الأستاذ</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>عرض القيد</span>
                     </div>
                 </div>
             </div>
             <div class="print-actions">
-                <a href="<?php echo URL_ROOT; ?>/account/ledger" class="btn-back"><i class="fas fa-arrow-right"></i> السجل</a>
+                <a href="<?php echo URLROOT; ?>/account/ledger" class="btn-back"><i class="fas fa-arrow-right"></i> السجل</a>
                 <button class="btn-print" onclick="window.print()"><i class="fas fa-print"></i> طباعة القيد</button>
             </div>
         </header>

@@ -1,5 +1,5 @@
 <?php
-// المسار: app/controllers/FollowupController.php
+// app/controllers/FollowupController.php
 
 class FollowupController extends Controller {
     
@@ -12,11 +12,7 @@ class FollowupController extends Controller {
 
     public function index(): void {
         $followups = $this->followupModel->getAllFollowups();
-        $data = [
-            'title' => 'المتابعات والاجتماعات',
-            'followups' => $followups,
-            'flash' => $this->getFlash()
-        ];
+        $data = ['title' => 'المتابعات والاجتماعات', 'followups' => $followups];
         
         ob_start();
         $this->view('followups/index', $data);
@@ -53,11 +49,7 @@ class FollowupController extends Controller {
             $db->query("SELECT id, name, company FROM leads ORDER BY name ASC");
             $leads = $db->resultSet();
             
-            $data = [
-                'title' => 'جدولة متابعة جديدة',
-                'leads' => $leads,
-                'flash' => $this->getFlash()
-            ];
+            $data = ['title' => 'جدولة متابعة جديدة', 'leads' => $leads];
             
             ob_start();
             $this->view('followups/create', $data);
@@ -66,12 +58,24 @@ class FollowupController extends Controller {
         }
     }
 
-    public function complete(int $id): void {
-        if ($this->isPost()) {
-            if ($this->followupModel->markAsCompleted($id)) {
-                $this->setFlash('success', 'تم إنجاز المتابعة.');
+    public function complete(string $id = ''): void {
+        if ($this->isPost() && !empty($id) && is_numeric($id)) {
+            if ($this->followupModel->markAsCompleted((int)$id)) {
+                $this->setFlash('success', 'تم إنجاز المتابعة بنجاح.');
             } else {
-                $this->setFlash('error', 'حدث خطأ أثناء تحديث حالة المتابعة.');
+                $this->setFlash('error', 'حدث خطأ أثناء التحديث.');
+            }
+        }
+        $this->redirect('followup/index');
+    }
+
+    public function delete(string $id = ''): void {
+        $this->requireRole('admin');
+        if ($this->isPost() && !empty($id) && is_numeric($id)) {
+            if ($this->followupModel->deleteFollowup((int)$id)) {
+                $this->setFlash('success', 'تم حذف المتابعة.');
+            } else {
+                $this->setFlash('error', 'فشل في حذف المتابعة.');
             }
         }
         $this->redirect('followup/index');

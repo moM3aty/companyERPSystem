@@ -1,5 +1,5 @@
 <?php
-// المسار: app/controllers/JournalController.php
+// app/controllers/JournalController.php
 
 class JournalController extends Controller {
     
@@ -7,15 +7,11 @@ class JournalController extends Controller {
     private Account $accountModel;
 
     public function __construct() {
-        // حماية الوصول: فقط من لديهم صلاحيات إدارية أو محاسبية
         $this->requireAnyRole(['admin', 'editor']);
         $this->journalModel = $this->model('Journal');
-        $this->accountModel = $this->model('Account'); // سنحتاج دليل الحسابات لجلبه في الفورم
+        $this->accountModel = $this->model('Account'); 
     }
 
-    /**
-     * عرض قائمة القيود اليومية
-     */
     public function index(): void {
         $entries = $this->journalModel->getAllEntries();
         
@@ -23,7 +19,7 @@ class JournalController extends Controller {
             'title' => 'القيود اليومية',
             'entries' => $entries,
             'breadcrumb' => [
-                ['label' => 'المالية والمحاسبة', 'url' => '#'],
+                ['label' => 'المحاسبة', 'url' => '#'],
                 ['label' => 'القيود اليومية', 'url' => 'journal/index']
             ]
         ];
@@ -31,13 +27,9 @@ class JournalController extends Controller {
         ob_start();
         $this->view('journal/index', $data);
         $content = ob_get_clean();
-        
         Layout::render($content, $data);
     }
 
-    /**
-     * إضافة قيد يومية جديد
-     */
     public function create(): void {
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
@@ -55,7 +47,6 @@ class JournalController extends Controller {
             $credits = $_POST['credit'] ?? [];
             $lineDescriptions = $_POST['line_description'] ?? [];
 
-            // التحقق من صحة القيد المزدوج
             $totalDebit = 0;
             $totalCredit = 0;
             $lines = [];
@@ -78,31 +69,30 @@ class JournalController extends Controller {
                 }
             }
 
-            if (empty($data['entry_number']) || empty($data['entry_date'])) {
+            if (empty($data['entry_number']) || empty($data['description'])) {
                 $this->setFlash('error', 'يرجى تعبئة الحقول الأساسية للقيد.');
                 $this->redirect('journal/create');
             }
 
-            if (empty($lines)) {
+            if (empty($lines) || count($lines) < 2) {
                 $this->setFlash('error', 'يجب إضافة سطرين على الأقل للقيد.');
                 $this->redirect('journal/create');
             }
 
             if (round($totalDebit, 2) !== round($totalCredit, 2)) {
-                $this->setFlash('error', 'القيد غير متزن! إجمالي المدين (' . $totalDebit . ') لا يساوي إجمالي الدائن (' . $totalCredit . ').');
+                $this->setFlash('error', 'القيد غير متزن! المجموع المدين لا يساوي الدائن.');
                 $this->redirect('journal/create');
             }
 
             if ($this->journalModel->createEntry($data, $lines)) {
-                $this->setFlash('success', 'تم حفظ القيد اليومي بنجاح وتحديث أرصدة الحسابات.');
+                $this->setFlash('success', 'تم حفظ القيد وتحديث أرصدة الحسابات بنجاح.');
                 $this->redirect('journal/index');
             } else {
                 $this->setFlash('error', 'حدث خطأ أثناء حفظ القيد.');
                 $this->redirect('journal/create');
             }
         } else {
-            // توليد رقم قيد افتراضي
-            $defaultEntryNumber = 'JE-' . date('Ymd') . '-' . str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
+            $defaultEntryNumber = 'JE-' . date('Ymd') . '-' . str_pad((string)random_int(1, 999), 3, '0', STR_PAD_LEFT);
             $accounts = $this->accountModel->getChartOfAccounts();
             
             $data = [
@@ -110,7 +100,7 @@ class JournalController extends Controller {
                 'accounts' => $accounts,
                 'default_entry_number' => $defaultEntryNumber,
                 'breadcrumb' => [
-                    ['label' => 'القيود اليومية', 'url' => 'journal/index'],
+                    ['label' => 'القيود', 'url' => 'journal/index'],
                     ['label' => 'إضافة قيد', 'url' => '#']
                 ]
             ];
@@ -118,38 +108,36 @@ class JournalController extends Controller {
             ob_start();
             $this->view('journal/create', $data);
             $content = ob_get_clean();
-            
             Layout::render($content, $data);
         }
     }
 
-    /**
-     * عرض تفاصيل القيد
-     */
-    public function show(int $id): void {
-        $entry = $this->journalModel->getEntryById($id);
+    public function show(string $id = ''): void {
+        if (empty($id) || !is_numeric($id)) $this->redirect('journal/index');
+        
+        $entryId = (int)$id;
+        $entry = $this->journalModel->getEntryById($entryId);
         
         if (!$entry) {
             $this->setFlash('error', 'القيد غير موجود.');
             $this->redirect('journal/index');
         }
 
-        $lines = $this->journalModel->getEntryLines($id);
+        $lines = $this->journalModel->getEntryLines($entryId);
 
         $data = [
-            'title' => 'تفاصيل القيد: ' . $entry->entry_number,
+            'title' => 'تفاصيل القيد',
             'entry' => $entry,
             'lines' => $lines,
             'breadcrumb' => [
-                ['label' => 'القيود اليومية', 'url' => 'journal/index'],
-                ['label' => 'تفاصيل القيد', 'url' => '#']
+                ['label' => 'القيود', 'url' => 'journal/index'],
+                ['label' => 'التفاصيل', 'url' => '#']
             ]
         ];
 
         ob_start();
-        $this->view('journal/view', $data); // سنقوم بإنشاء هذا العرض لاحقاً
+        $this->view('journal/view', $data);
         $content = ob_get_clean();
-        
         Layout::render($content, $data);
     }
 }

@@ -163,7 +163,7 @@ foreach ($warehouses as $wh) {
                 <div class="su-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'مدير النظام'); ?></div>
                 <div class="su-role"><?php echo htmlspecialchars($_SESSION['user_role'] ?? 'admin'); ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -174,7 +174,7 @@ foreach ($warehouses as $wh) {
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>المشتريات والمخزون</span>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
@@ -225,7 +225,7 @@ foreach ($warehouses as $wh) {
                     </div>
                 </div>
                 <div>
-                    <a href="<?php echo URL_ROOT; ?>/warehouse/create" class="btn-add">
+                    <a href="<?php echo URLROOT; ?>/warehouse/create" class="btn-add">
                         <i class="fas fa-plus"></i> إضافة مستودع
                     </a>
                 </div>
@@ -263,8 +263,8 @@ foreach ($warehouses as $wh) {
                                 <td><span style="font-size:12px;color:var(--text-muted);"><i class="far fa-calendar"></i> <?php echo date('Y-m-d', strtotime($wh->created_at)); ?></span></td>
                                 <td>
                                     <div class="actions-cell">
-                                        <a href="<?php echo URL_ROOT; ?>/warehouse/edit/<?php echo $wh->id; ?>" class="act-btn btn-edit" title="تعديل" onclick="alert('واجهة التعديل غير متوفرة في التحديث الحالي')"><i class="fas fa-pen-to-square"></i></a>
-                                        <form method="POST" action="<?php echo URL_ROOT; ?>/warehouse/delete/<?php echo $wh->id; ?>" style="display:inline;" onsubmit="return confirm('هل أنت متأكد من الحذف؟')">
+                                        <a href="<?php echo URLROOT; ?>/warehouse/edit/<?php echo $wh->id; ?>" class="act-btn btn-edit" title="تعديل" onclick="alert('واجهة التعديل غير متوفرة في التحديث الحالي')"><i class="fas fa-pen-to-square"></i></a>
+                                        <form method="POST" action="<?php echo URLROOT; ?>/warehouse/delete/<?php echo $wh->id; ?>" style="display:inline;" onsubmit="return confirm('هل أنت متأكد من الحذف؟')">
                                             <button type="submit" class="act-btn btn-del" title="حذف" <?php echo $wh->is_main ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''; ?>><i class="fas fa-trash-can"></i></button>
                                         </form>
                                     </div>
@@ -279,7 +279,7 @@ foreach ($warehouses as $wh) {
                                         <i class="fas fa-warehouse"></i>
                                         <h4>لا توجد مستودعات مسجلة</h4>
                                         <p>قم بإنشاء مستودع رئيسي لإدارة المخزون</p>
-                                        <a href="<?php echo URL_ROOT; ?>/warehouse/create" class="btn-add" style="display:inline-flex;">
+                                        <a href="<?php echo URLROOT; ?>/warehouse/create" class="btn-add" style="display:inline-flex;">
                                             <i class="fas fa-plus"></i> إضافة مستودع
                                         </a>
                                     </div>

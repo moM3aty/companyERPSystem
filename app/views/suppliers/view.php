@@ -776,7 +776,7 @@ $currentUrl = 'supplier/index';
                 <div class="su-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'مدير النظام'); ?></div>
                 <div class="su-role"><?php echo htmlspecialchars($_SESSION['user_role'] ?? 'admin'); ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -787,16 +787,16 @@ $currentUrl = 'supplier/index';
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
-                        <a href="<?php echo URL_ROOT; ?>/supplier/index">إدارة الموردين</a>
+                        <a href="<?php echo URLROOT; ?>/supplier/index">إدارة الموردين</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>تفاصيل المورد</span>
                     </div>
                 </div>
             </div>
             <div class="topbar-left">
-                <a href="<?php echo URL_ROOT; ?>/supplier/edit/<?php echo $s->id; ?>" class="topbar-btn" title="تعديل بيانات المورد"><i class="fas fa-pen"></i></a>
+                <a href="<?php echo URLROOT; ?>/supplier/edit/<?php echo $s->id; ?>" class="topbar-btn" title="تعديل بيانات المورد"><i class="fas fa-pen"></i></a>
                 <button class="topbar-btn" title="طباعة الكشف" onclick="window.print()"><i class="fas fa-print"></i></button>
             </div>
         </header>
@@ -900,7 +900,7 @@ $currentUrl = 'supplier/index';
                                                 </span>
                                             </td>
                                             <td style="text-align:left;">
-                                                <a href="<?php echo URL_ROOT; ?>/purchase/view/<?php echo $po->id; ?>" class="act-btn" title="عرض الأمر"><i class="fas fa-eye"></i></a>
+                                                <a href="<?php echo URLROOT; ?>/purchase/view/<?php echo $po->id; ?>" class="act-btn" title="عرض الأمر"><i class="fas fa-eye"></i></a>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

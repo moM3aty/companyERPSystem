@@ -1,5 +1,5 @@
 <?php
-// المسار: app/models/Report.php
+// app/models/Report.php
 
 class Report extends Model {
     
@@ -17,7 +17,6 @@ class Report extends Model {
         $this->db->bind(':year', $year, PDO::PARAM_INT);
         $results = $this->db->resultSet();
         
-        // تجهيز مصفوفة بـ 12 شهر لضمان عدم وجود فجوات في الرسم البياني
         $monthlySales = array_fill(1, 12, 0.0);
         foreach ($results as $row) {
             $monthlySales[(int)$row->month] = (float)$row->total_sales;
@@ -58,6 +57,17 @@ class Report extends Model {
         return $this->db->resultSet();
     }
     
+    public function getTopSellingProducts(int $limit = 5): array {
+        $sql = "SELECT p.name, SUM(ii.quantity) as qty_sold, SUM(ii.subtotal) as total_revenue
+                FROM invoice_items ii
+                JOIN products p ON ii.product_id = p.id
+                GROUP BY ii.product_id, p.name
+                ORDER BY qty_sold DESC
+                LIMIT " . $limit;
+        $this->db->query($sql);
+        return $this->db->resultSet();
+    }
+    
     public function getDetailedSalesReport(string $startDate, string $endDate): array {
         $sql = "SELECT i.invoice_number, i.customer_name, i.total_amount, i.created_at, u.name as sales_rep 
                 FROM invoices i 
@@ -65,8 +75,8 @@ class Report extends Model {
                 WHERE DATE(i.created_at) BETWEEN :start_date AND :end_date 
                 ORDER BY i.created_at DESC";
         $this->db->query($sql);
-        $this->db->bind(':start_date', $startDate);
-        $this->db->bind(':end_date', $endDate);
+        $this->db->bind(':start_date', $startDate . ' 00:00:00');
+        $this->db->bind(':end_date', $endDate . ' 23:59:59');
         return $this->db->resultSet();
     }
 }

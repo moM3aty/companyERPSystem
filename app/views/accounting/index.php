@@ -186,7 +186,7 @@ $profitPct = $totalSales > 0 ? max(($netProfit / $totalSales) * 100, 0) : 0;
                 <div class="su-name"><?php echo $_SESSION['user_name'] ?? 'مدير النظام'; ?></div>
                 <div class="su-role"><?php echo $_SESSION['user_role'] ?? 'admin'; ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -197,7 +197,7 @@ $profitPct = $totalSales > 0 ? max(($netProfit / $totalSales) * 100, 0) : 0;
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>المحاسبة والأرباح</span>
                     </div>
@@ -264,7 +264,7 @@ $profitPct = $totalSales > 0 ? max(($netProfit / $totalSales) * 100, 0) : 0;
                         <h3><i class="fas fa-receipt" style="color:var(--danger);"></i> تسجيل مصروف جديد</h3>
                     </div>
                     <div class="card-body">
-                        <form action="<?php echo URL_ROOT; ?>/accounting/index" method="POST" id="expenseForm" class="expense-form" novalidate>
+                        <form action="<?php echo URLROOT; ?>/accounting/index" method="POST" id="expenseForm" class="expense-form" novalidate>
                             <div class="ef-group">
                                 <label class="ef-label">تصنيف المصروف</label>
                                 <select name="category" class="ef-input">
@@ -411,7 +411,7 @@ $profitPct = $totalSales > 0 ? max(($netProfit / $totalSales) * 100, 0) : 0;
         function openDeleteModal(id, name, amount) {
             document.getElementById('delExpName').textContent = name;
             document.getElementById('delExpAmount').textContent = amount.toLocaleString('ar-SA', { minimumFractionDigits: 2 }) + ' ر.س';
-            deleteForm.action = '<?php echo URL_ROOT; ?>/accounting/index?delete=' + id;
+            deleteForm.action = '<?php echo URLROOT; ?>/accounting/index?delete=' + id;
             deleteModal.classList.add('show');
         }
         function closeDeleteModal() { deleteModal.classList.remove('show'); }

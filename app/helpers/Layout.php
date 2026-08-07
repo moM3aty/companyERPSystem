@@ -48,7 +48,7 @@ class Layout {
         ];
 
         // الحصول على الرابط الأساسي للمشروع
-        $baseUrl = defined('URL_ROOT') ? URL_ROOT : '';
+        $baseUrl = defined('URLROOT') ? URLROOT : '';
 
         $html = '<nav class="sidebar-nav">';
         

@@ -1,5 +1,5 @@
 <?php
-// reset_password.php - ضع هذا الملف في مجلد public
+// public/reset_password.php 
 
 // المسار الصحيح لملف الإعدادات
 require_once __DIR__ . '/../config/config.php';

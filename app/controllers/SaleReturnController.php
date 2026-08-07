@@ -15,11 +15,13 @@ class SaleReturnController extends Controller {
         
         $data = [
             'title' => 'سجل المرتجعات',
-            'returns' => $returns,
-            'flash' => $this->getFlash()
+            'returns' => $returns
         ];
         
+        ob_start();
         $this->view('sales_returns/index', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
     public function create(): void {
@@ -56,13 +58,18 @@ class SaleReturnController extends Controller {
                 }
             }
 
+            if (empty($items)) {
+                $this->setFlash('error', 'بيانات الأصناف غير صالحة.');
+                $this->redirect('saleReturn/create');
+            }
+
             $returnData = [
                 'invoice_id' => $invoiceId,
                 'total_refund' => $totalRefund,
                 'reason' => $reason
             ];
 
-            if ($this->returnModel->createReturn($returnData, $items)) {
+            if ($this->returnModel->createSaleReturn($returnData, $items)) {
                 $this->setFlash('success', 'تم معالجة المرتجع وإعادة الكميات للمخزون بنجاح.');
                 $this->redirect('saleReturn/index');
             } else {
@@ -70,7 +77,6 @@ class SaleReturnController extends Controller {
                 $this->redirect('saleReturn/create');
             }
         } else {
-            // جلب الفاتورة والمنتجات للاختيار
             $db = Database::getInstance();
             $db->query('SELECT id, invoice_number, customer_name FROM invoices ORDER BY created_at DESC LIMIT 50');
             $invoices = $db->resultSet();
@@ -81,11 +87,13 @@ class SaleReturnController extends Controller {
             $data = [
                 'title' => 'تسجيل مرتجع مبيعات',
                 'invoices' => $invoices,
-                'products' => $products,
-                'flash' => $this->getFlash()
+                'products' => $products
             ];
             
+            ob_start();
             $this->view('sales_returns/create', $data);
+            $content = ob_get_clean();
+            Layout::render($content, $data);
         }
     }
 }

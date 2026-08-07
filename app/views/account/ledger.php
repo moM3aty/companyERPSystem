@@ -168,7 +168,7 @@ $currentUrl = $_GET['url'] ?? 'account/ledger';
                 <div class="su-name"><?php echo $_SESSION['user_name'] ?? 'مدير النظام'; ?></div>
                 <div class="su-role"><?php echo $_SESSION['user_role'] ?? 'admin'; ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج">
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج">
                 <i class="fas fa-right-from-bracket"></i>
             </a>
         </div>
@@ -182,7 +182,7 @@ $currentUrl = $_GET['url'] ?? 'account/ledger';
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>المحاسبة</span>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
@@ -207,7 +207,7 @@ $currentUrl = $_GET['url'] ?? 'account/ledger';
                     <h3><i class="fas fa-book-open"></i> سجل القيود اليومية</h3>
                 </div>
                 <div>
-                    <a href="<?php echo URL_ROOT; ?>/account/create-journal" class="btn-add">
+                    <a href="<?php echo URLROOT; ?>/account/create-journal" class="btn-add">
                         <i class="fas fa-plus"></i> إنشاء قيد يومي
                     </a>
                 </div>
@@ -260,7 +260,7 @@ $currentUrl = $_GET['url'] ?? 'account/ledger';
                                 </td>
                                 <td>
                                     <div style="display:flex; justify-content:center;">
-                                        <a href="<?php echo URL_ROOT; ?>/account/view-journal/<?php echo $entry->id; ?>" class="act-btn" title="عرض التفاصيل">
+                                        <a href="<?php echo URLROOT; ?>/account/view-journal/<?php echo $entry->id; ?>" class="act-btn" title="عرض التفاصيل">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                     </div>

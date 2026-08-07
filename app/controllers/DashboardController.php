@@ -7,43 +7,108 @@ class DashboardController extends Controller {
         $this->requireAuth();
     }
 
-    public function index() {
+    public function index(): void {
         $db = Database::getInstance();
         
-        // جلب إحصائيات سريعة للوحة التحكم (الاعتماد على الجداول المتوفرة)
-        $stats = [];
-        
-        // 1. الموظفين
-        $db->query("SELECT COUNT(*) as count FROM employees");
-        $stats['employees'] = $db->single()->count ?? 0;
-        
-        // 2. المنتجات
-        $db->query("SELECT COUNT(*) as count FROM products");
-        $stats['products'] = $db->single()->count ?? 0;
-        
-        // 3. المبيعات
         $db->query("SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices");
-        $stats['sales'] = $db->single()->total ?? 0;
+        $totalSales = (float)($db->single()->total ?? 0);
 
-        // 4. المشاريع
+        $db->query("SELECT COALESCE(SUM(amount), 0) as total FROM expenses");
+        $totalExpenses = (float)($db->single()->total ?? 0);
+
+        $netProfit = $totalSales - $totalExpenses;
+
+        $db->query("SELECT COALESCE(SUM(balance), 0) as total FROM customers WHERE balance > 0");
+        $totalReceivables = (float)($db->single()->total ?? 0);
+
+        $db->query("SELECT COALESCE(SUM(balance), 0) as total FROM suppliers WHERE balance > 0");
+        $totalPayables = (float)($db->single()->total ?? 0);
+
+        $stats = [];
+        $db->query("SELECT COUNT(*) as count FROM employees");
+        $stats['employees'] = (int)($db->single()->count ?? 0);
+
+        $db->query("SELECT COUNT(*) as count FROM products");
+        $stats['products'] = (int)($db->single()->count ?? 0);
+
         $db->query("SELECT COUNT(*) as count FROM projects WHERE status IN ('active', 'planning')");
-        $stats['projects'] = $db->single()->count ?? 0;
+        $stats['projects'] = (int)($db->single()->count ?? 0);
 
-        // النشاطات الحديثة (آخر 5 فواتير)
-        $db->query("SELECT invoice_number as title, total_amount as details, created_at FROM invoices ORDER BY created_at DESC LIMIT 5");
-        $recent_activities = $db->resultSet();
+        $db->query("SELECT COUNT(*) as count FROM support_tickets WHERE status IN ('open', 'in_progress')");
+        $stats['open_tickets'] = (int)($db->single()->count ?? 0);
+
+        $db->query("SELECT COUNT(*) as count FROM leave_requests WHERE status = 'pending'");
+        $pendingLeaves = (int)($db->single()->count ?? 0);
+
+        $db->query("SELECT COUNT(*) as count FROM employee_advances WHERE status = 'pending'");
+        $pendingAdvances = (int)($db->single()->count ?? 0);
+
+        $db->query("SELECT COUNT(*) as count FROM purchase_requests WHERE status = 'pending'");
+        $pendingPurchaseRequests = (int)($db->single()->count ?? 0);
+
+        $db->query("SELECT COUNT(*) as count FROM products WHERE quantity <= reorder_point");
+        $lowStockCount = (int)($db->single()->count ?? 0);
+
+        $db->query("SELECT COUNT(*) as count FROM contracts WHERE status = 'active' AND end_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY)");
+        $expiringContractsCount = (int)($db->single()->count ?? 0);
+
+        // 🔴 إصلاح مصفوفة المبيعات للرسم البياني لتتوافق مع JSON 🔴
+        $labels = [];
+        $dataArray = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $monthDate = date('Y-m', strtotime("-$i months"));
+            $db->query("SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE_FORMAT(created_at, '%Y-%m') = :mdate");
+            $db->bind(':mdate', $monthDate);
+            $total = (float)($db->single()->total ?? 0);
+            
+            $labels[] = date('M Y', strtotime("-$i months"));
+            $dataArray[] = $total;
+        }
+
+        $db->query("SELECT 'invoice' as type, invoice_number as title, total_amount as details, created_at FROM invoices ORDER BY created_at DESC LIMIT 5");
+        $recentInvoices = $db->resultSet();
 
         $data = [
-            'title' => 'لوحة التحكم الرئيسية',
+            'title' => 'لوحة القيادة والمؤشرات العامة',
+            'kpis' => [
+                'sales' => $totalSales,
+                'expenses' => $totalExpenses,
+                'profit' => $netProfit,
+                'receivables' => $totalReceivables,
+                'payables' => $totalPayables
+            ],
             'stats' => $stats,
-            'recent_activities' => $recent_activities,
-            'user' => [
-                'name' => Session::getUserName(),
-                'role' => Session::getUserRole()
-            ]
+            'approvals' => [
+                'leaves' => $pendingLeaves,
+                'advances' => $pendingAdvances,
+                'prs' => $pendingPurchaseRequests
+            ],
+            'alerts' => [
+                'low_stock' => $lowStockCount,
+                'expiring_contracts' => $expiringContractsCount
+            ],
+            'monthly_sales_labels' => json_encode($labels),
+            'monthly_sales_data' => json_encode($dataArray),
+            'recent_activities' => $recentInvoices
         ];
 
-        // يتم الاعتماد على ملف الـ view الخاص بـ dashboard
+        ob_start();
         $this->view('dashboard/index', $data);
+        $content = ob_get_clean();
+
+        Layout::render($content, $data);
+    }
+
+    // نقطة اتصال لجعل الإشعار مقروء عند الضغط عليه
+    public function readNotification(string $id = '') {
+        if (!empty($id) && is_numeric($id)) {
+            $notifModel = $this->model('Notification');
+            $notifModel->markAsRead((int)$id);
+            $notif = $notifModel->findById((int)$id);
+            if ($notif && $notif->link) {
+                $this->redirect($notif->link);
+            }
+        }
+        $this->redirect('dashboard/index');
     }
 }

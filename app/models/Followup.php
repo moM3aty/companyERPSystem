@@ -1,5 +1,5 @@
 <?php
-// المسار: app/models/Followup.php
+// app/models/Followup.php
 
 class Followup extends Model {
     
@@ -34,6 +34,12 @@ class Followup extends Model {
 
     public function markAsCompleted(int $id): bool {
         $this->db->query("UPDATE {$this->table} SET status = 'completed' WHERE id = :id");
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        return $this->db->execute();
+    }
+    
+    public function deleteFollowup(int $id): bool {
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id");
         $this->db->bind(':id', $id, PDO::PARAM_INT);
         return $this->db->execute();
     }

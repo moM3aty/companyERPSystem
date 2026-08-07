@@ -3,41 +3,28 @@
 
 class StocktakeController extends Controller {
     
-    /** @var Stocktake */
     private Stocktake $stocktakeModel;
 
     public function __construct() {
-        // حماية الوصول
         $this->requireAuth();
         $this->stocktakeModel = $this->model('Stocktake');
     }
 
-    /**
-     * عرض سجل تسويات المخزون
-     */
     public function index(): void {
         $adjustments = $this->stocktakeModel->getAllAdjustments();
         
         $data = [
             'title' => 'الجرد وتسويات المخزون',
             'adjustments' => $adjustments,
-            'flash' => $this->getFlash(),
-            'breadcrumb' => [
-                ['label' => 'المخازن', 'url' => '#'],
-                ['label' => 'الجرد والتسويات', 'url' => 'stocktake/index']
-            ]
+            'breadcrumb' => [['label' => 'المخازن', 'url' => '#'], ['label' => 'الجرد والتسويات', 'url' => 'stocktake/index']]
         ];
         
         ob_start();
         $this->view('stocktake/index', $data);
         $content = ob_get_clean();
-        
         Layout::render($content, $data);
     }
 
-    /**
-     * إنشاء تسوية جرد جديدة
-     */
     public function create(): void {
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
@@ -56,7 +43,6 @@ class StocktakeController extends Controller {
                 $this->redirect('stocktake/create');
             }
 
-            // التحقق من أن الكمية المخصومة لا تتجاوز الرصيد الحالي
             if (in_array($data['type'], ['subtraction', 'damage', 'loss'])) {
                 $db = Database::getInstance();
                 $db->query("SELECT quantity FROM products WHERE id = :id LIMIT 1");
@@ -76,7 +62,6 @@ class StocktakeController extends Controller {
                 $this->setFlash('error', 'حدث خطأ أثناء معالجة التسوية المخزنية.');
                 $this->redirect('stocktake/create');
             }
-            
         } else {
             $db = Database::getInstance();
             $db->query("SELECT id, name, sku, quantity FROM products ORDER BY name ASC");
@@ -85,18 +70,12 @@ class StocktakeController extends Controller {
             $data = [
                 'title' => 'تسجيل حركة جرد/تسوية',
                 'products' => $products,
-                'flash' => $this->getFlash(),
-                'breadcrumb' => [
-                    ['label' => 'المخازن', 'url' => 'product/index'],
-                    ['label' => 'تسويات الجرد', 'url' => 'stocktake/index'],
-                    ['label' => 'حركة جديدة', 'url' => '#']
-                ]
+                'breadcrumb' => [['label' => 'المخازن', 'url' => 'product/index'], ['label' => 'تسويات الجرد', 'url' => 'stocktake/index'], ['label' => 'حركة جديدة', 'url' => '#']]
             ];
             
             ob_start();
             $this->view('stocktake/create', $data);
             $content = ob_get_clean();
-            
             Layout::render($content, $data);
         }
     }

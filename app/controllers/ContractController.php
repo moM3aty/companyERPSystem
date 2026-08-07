@@ -3,47 +3,42 @@
 
 class ContractController extends Controller {
     
+    private Contract $contractModel;
+
     public function __construct() {
-        // التحقق من تسجيل الدخول
         $this->requireAuth();
+        $this->contractModel = $this->model('Contract');
     }
 
-    /**
-     * عرض قائمة العقود (التنبيهات، وعرض الكل)
-     */
-    public function index() {
-        $db = Database::getInstance();
+    public function index(): void {
+        // 🟢 إطلاق فحص العقود الذكي: سيتم توليد إشعارات إذا كان هناك عقود تنتهي قريباً
+        NotificationHelper::checkExpiringContracts();
         
-        $db->query('
-            SELECT c.*, 
-                   CASE 
-                       WHEN c.party_type = "customer" THEN cust.name 
-                       WHEN c.party_type = "supplier" THEN sup.name 
-                   END as party_name
-            FROM contracts c
-            LEFT JOIN customers cust ON c.party_id = cust.id AND c.party_type = "customer"
-            LEFT JOIN suppliers sup ON c.party_id = sup.id AND c.party_type = "supplier"
-            ORDER BY c.end_date ASC
-        ');
-        $contracts = $db->resultSet();
+        $contracts = $this->contractModel->getAllContractsDetails();
         
         $data = [
-            'title' => 'إدارة العقود',
+            'title' => 'إدارة العقود والمواثيق',
             'contracts' => $contracts,
-            'flash' => $this->getFlash()
+            'breadcrumb' => [
+                ['label' => 'CRM والمشاريع', 'url' => '#'],
+                ['label' => 'إدارة العقود', 'url' => 'contract/index']
+            ]
         ];
         
+        ob_start();
         $this->view('contracts/index', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    /**
-     * إنشاء عقد جديد
-     */
-    public function create() {
+    public function create(): void {
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             
+            $contractNumber = 'CNT-' . date('Ym') . '-' . str_pad((string)random_int(10, 999), 3, '0', STR_PAD_LEFT);
+            
             $data = [
+                'contract_number' => $contractNumber,
                 'title' => trim($_POST['title'] ?? ''),
                 'party_type' => $_POST['party_type'] ?? 'customer',
                 'party_id' => !empty($_POST['party_id']) ? (int)$_POST['party_id'] : null,
@@ -54,44 +49,22 @@ class ContractController extends Controller {
                 'description' => trim($_POST['description'] ?? '')
             ];
             
-            $errors = [];
-            if (empty($data['title'])) $errors[] = 'عنوان العقد مطلوب';
-            if (empty($data['party_id'])) $errors[] = 'يجب تحديد الطرف المعني بالعقد';
-            if (empty($data['end_date'])) $errors[] = 'تاريخ انتهاء العقد مطلوب للتنبيهات';
-
-            if (empty($errors)) {
-                $db = Database::getInstance();
-                $db->query('
-                    INSERT INTO contracts (title, party_type, party_id, start_date, end_date, value, status, description)
-                    VALUES (:title, :party_type, :party_id, :start_date, :end_date, :value, :status, :description)
-                ');
-                
-                $db->bind(':title', $data['title']);
-                $db->bind(':party_type', $data['party_type']);
-                $db->bind(':party_id', $data['party_id'], PDO::PARAM_INT);
-                $db->bind(':start_date', $data['start_date']);
-                $db->bind(':end_date', $data['end_date']);
-                $db->bind(':value', $data['value']);
-                $db->bind(':status', $data['status']);
-                $db->bind(':description', $data['description']);
-                
-                if ($db->execute()) {
-                    $this->setFlash('success', 'تم تسجيل العقد بنجاح وإدراجه في نظام التنبيهات.');
-                    $this->redirect('contract/index');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء حفظ العقد في قاعدة البيانات.');
-                }
-            } else {
-                $this->setFlash('error', implode(' | ', $errors));
+            if (empty($data['title']) || empty($data['party_id']) || empty($data['end_date'])) {
+                $this->setFlash('error', 'عنوان العقد، الطرف المعني، وتاريخ الانتهاء حقول مطلوبة.');
+                $this->redirect('contract/create');
             }
-            $this->redirect('contract/create');
-            
+
+            if ($this->contractModel->createContractDetails($data)) {
+                $this->setFlash('success', 'تم تسجيل العقد بنجاح وإدراجه في نظام التنبيهات الآلية.');
+                $this->redirect('contract/index');
+            } else {
+                $this->setFlash('error', 'حدث خطأ أثناء حفظ العقد في قاعدة البيانات.');
+                $this->redirect('contract/create');
+            }
         } else {
-            // جلب العملاء والموردين للعرض في القوائم المنسدلة
             $db = Database::getInstance();
             $db->query('SELECT id, name FROM customers ORDER BY name ASC');
             $customers = $db->resultSet();
-            
             $db->query('SELECT id, name FROM suppliers ORDER BY name ASC');
             $suppliers = $db->resultSet();
 
@@ -99,23 +72,23 @@ class ContractController extends Controller {
                 'title' => 'تسجيل عقد جديد',
                 'customers' => $customers,
                 'suppliers' => $suppliers,
-                'flash' => $this->getFlash()
+                'breadcrumb' => [
+                    ['label' => 'العقود', 'url' => 'contract/index'],
+                    ['label' => 'تسجيل عقد', 'url' => '#']
+                ]
             ];
 
+            ob_start();
             $this->view('contracts/create', $data);
+            $content = ob_get_clean();
+            Layout::render($content, $data);
         }
     }
 
-    /**
-     * حذف عقد
-     */
-    public function delete($id) {
-        if ($this->isPost()) {
-            $db = Database::getInstance();
-            $db->query('DELETE FROM contracts WHERE id = :id');
-            $db->bind(':id', $id, PDO::PARAM_INT);
-            
-            if ($db->execute()) {
+    public function delete(string $id = ''): void {
+        $this->requireRole('admin');
+        if ($this->isPost() && !empty($id) && is_numeric($id)) {
+            if ($this->contractModel->deleteContract((int)$id)) {
                 $this->setFlash('success', 'تم حذف العقد بنجاح.');
             } else {
                 $this->setFlash('error', 'حدث خطأ أثناء الحذف.');

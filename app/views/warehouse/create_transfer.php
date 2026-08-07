@@ -128,7 +128,7 @@ $currentUrl = 'warehouse/transfers';
                 <div class="su-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'مدير النظام'); ?></div>
                 <div class="su-role"><?php echo htmlspecialchars($_SESSION['user_role'] ?? 'admin'); ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -139,9 +139,9 @@ $currentUrl = 'warehouse/transfers';
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
-                        <a href="<?php echo URL_ROOT; ?>/warehouse/transfers">نقل المخزون</a>
+                        <a href="<?php echo URLROOT; ?>/warehouse/transfers">نقل المخزون</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>طلب جديد</span>
                     </div>
@@ -164,7 +164,7 @@ $currentUrl = 'warehouse/transfers';
             </div>
 
             <div class="form-card">
-                <form action="<?php echo URL_ROOT; ?>/warehouse/create-transfer" method="POST" id="transferForm" novalidate>
+                <form action="<?php echo URLROOT; ?>/warehouse/create-transfer" method="POST" id="transferForm" novalidate>
                     
                     <div class="form-section">
                         <div class="form-section-title"><span class="fst-icon fst-teal"><i class="fas fa-map-location-dot"></i></span> مسار النقل</div>
@@ -215,7 +215,7 @@ $currentUrl = 'warehouse/transfers';
                     
                     <div class="form-actions">
                         <button type="submit" class="btn-submit" id="btnSubmit"><i class="fas fa-paper-plane"></i> تنفيذ طلب النقل</button>
-                        <a href="<?php echo URL_ROOT; ?>/warehouse/transfers" class="btn-cancel">إلغاء</a>
+                        <a href="<?php echo URLROOT; ?>/warehouse/transfers" class="btn-cancel">إلغاء</a>
                     </div>
                 </form>
             </div>

@@ -781,7 +781,7 @@ $outstanding = max($totalPurchases - $totalPaid, 0);
                 <div class="su-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'مدير النظام'); ?></div>
                 <div class="su-role"><?php echo htmlspecialchars($_SESSION['user_role'] ?? 'admin'); ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -792,16 +792,16 @@ $outstanding = max($totalPurchases - $totalPaid, 0);
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
-                        <a href="<?php echo URL_ROOT; ?>/customer/index">إدارة العملاء</a>
+                        <a href="<?php echo URLROOT; ?>/customer/index">إدارة العملاء</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>تفاصيل العميل</span>
                     </div>
                 </div>
             </div>
             <div class="topbar-left">
-                <a href="<?php echo URL_ROOT; ?>/customer/edit/<?php echo $c->id; ?>" class="topbar-btn" title="تعديل بيانات العميل"><i class="fas fa-pen"></i></a>
+                <a href="<?php echo URLROOT; ?>/customer/edit/<?php echo $c->id; ?>" class="topbar-btn" title="تعديل بيانات العميل"><i class="fas fa-pen"></i></a>
                 <button class="topbar-btn" title="طباعة الكشف" onclick="window.print()"><i class="fas fa-print"></i></button>
             </div>
         </header>
@@ -872,7 +872,7 @@ $outstanding = max($totalPurchases - $totalPaid, 0);
                                             <td style="text-align:left;"><span class="amount-val"><?php echo number_format($inv->total_amount, 2); ?> <span class="curr">ر.س</span></span></td>
                                             <td><span class="date-val"><i class="far fa-calendar"></i> <?php echo date('Y-m-d', strtotime($inv->created_at)); ?></span></td>
                                             <td style="text-align:left;">
-                                                <a href="<?php echo URL_ROOT; ?>/sale/view/<?php echo $inv->id; ?>" class="act-btn" title="عرض الفاتورة"><i class="fas fa-eye"></i></a>
+                                                <a href="<?php echo URLROOT; ?>/sale/view/<?php echo $inv->id; ?>" class="act-btn" title="عرض الفاتورة"><i class="fas fa-eye"></i></a>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

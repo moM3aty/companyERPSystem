@@ -3,7 +3,6 @@
 
 class PayrollController extends Controller {
     
-    /** @var Payroll */
     private Payroll $payrollModel;
 
     public function __construct() {
@@ -11,28 +10,38 @@ class PayrollController extends Controller {
         $this->payrollModel = $this->model('Payroll');
     }
 
-    /**
-     * عرض قائمة مسيرات الرواتب
-     */
     public function index(): void {
         $payrolls = $this->payrollModel->getAllPayrolls();
         
         $data = [
             'title' => 'سجل مسيرات الرواتب',
             'payrolls' => $payrolls,
-            'flash' => $this->getFlash()
+            'breadcrumb' => [
+                ['label' => 'الموارد البشرية', 'url' => '#'],
+                ['label' => 'الرواتب والأجور', 'url' => 'payroll/index']
+            ]
         ];
         
+        ob_start();
         $this->view('payroll/index', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    /**
-     * عرض واعتماد مسير رواتب جديد
-     */
     public function create(): void {
+        $this->requireAnyRole(['admin', 'manager', 'editor']);
+        $db = Database::getInstance();
+
+        // 1. تحديد الشهر والسنة المطلوب حساب رواتبهم (الافتراضي: الشهر الحالي)
+        $selectedMonth = (int)($this->getQuery('month') ?: date('n'));
+        $selectedYear = (int)($this->getQuery('year') ?: date('Y'));
+
+        // 2. معالجة حفظ المسير النهائي
         if ($this->isPost()) {
-            $month = (int)($_POST['month'] ?? date('n'));
-            $year = (int)($_POST['year'] ?? date('Y'));
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            
+            $month = (int)($_POST['month'] ?? $selectedMonth);
+            $year = (int)($_POST['year'] ?? $selectedYear);
             
             $empIds = $_POST['emp_ids'] ?? [];
             $baseSalaries = $_POST['base_salaries'] ?? [];
@@ -41,28 +50,27 @@ class PayrollController extends Controller {
             $netSalaries = $_POST['net_salaries'] ?? [];
 
             if (empty($empIds)) {
-                $this->setFlash('error', 'لا يمكن حفظ مسير رواتب فارغ. لا يوجد موظفين!');
+                $this->setFlash('error', 'لا يمكن حفظ مسير رواتب فارغ. يجب تحديد موظف واحد على الأقل.');
                 $this->redirect('payroll/create');
             }
 
-            $db = Database::getInstance();
             $details = [];
             $totalNetAmount = 0.0;
 
-            // تجميع وتوثيق بيانات كل موظف
             foreach ($empIds as $index => $eid) {
-                // جلب اسم الموظف من الـ DB لضمان الدقة وتجنب التلاعب عبر الـ HTML
+                // التأكد من الموظف وصحته من الداتابيز
                 $db->query("SELECT name FROM employees WHERE id = :id LIMIT 1");
                 $db->bind(':id', $eid, PDO::PARAM_INT);
                 $emp = $db->single();
-                $empName = $emp ? $emp->name : 'موظف محذوف';
+                
+                if (!$emp) continue;
 
                 $net = (float)($netSalaries[$index] ?? 0);
                 $totalNetAmount += $net;
 
                 $details[] = [
                     'employee_id'   => (int)$eid,
-                    'employee_name' => $empName,
+                    'employee_name' => $emp->name,
                     'base_salary'   => (float)($baseSalaries[$index] ?? 0),
                     'deductions'    => (float)($deductions[$index] ?? 0),
                     'bonuses'       => (float)($bonuses[$index] ?? 0),
@@ -70,43 +78,78 @@ class PayrollController extends Controller {
                 ];
             }
 
-            $data = [
+            $payrollData = [
                 'month' => $month,
                 'year' => $year,
-                'total_net_amount' => $totalNetAmount
+                'total_net_amount' => $totalNetAmount,
+                'created_by' => Session::getUserId()
             ];
 
-            if ($this->payrollModel->createPayroll($data, $details)) {
-                $this->setFlash('success', 'تم اعتماد وإصدار مسير الرواتب بنجاح لشهر ' . $month . '/' . $year);
+            if ($this->payrollModel->createPayroll($payrollData, $details)) {
+                $this->setFlash('success', "تم اعتماد مسير رواتب شهر $month/$year وإثبات القيد المحاسبي بنجاح.");
                 $this->redirect('payroll/index');
             } else {
-                $this->setFlash('error', 'حدث خطأ غير متوقع أثناء حفظ مسير الرواتب.');
-                $this->redirect('payroll/create');
+                $this->setFlash('error', 'حدث خطأ غير متوقع أثناء الحفظ.');
+                $this->redirect("payroll/create?month=$month&year=$year");
             }
-
         } else {
-            // جلب قائمة الموظفين النشطين لعرضهم في الواجهة
-            $db = Database::getInstance();
+            // 3. عرض الواجهة وجلب الاستقطاعات الآلية للموظفين
             $db->query("SELECT id, name, position, salary FROM employees ORDER BY name ASC");
             $employees = $db->resultSet();
 
+            foreach ($employees as &$emp) {
+                // حساب السلف المعتمدة لهذا الشهر
+                $db->query("SELECT SUM(amount) as adv_total FROM employee_advances WHERE employee_id = :eid AND deduction_month = :m AND deduction_year = :y AND status = 'approved'");
+                $db->bind(':eid', $emp->id, PDO::PARAM_INT);
+                $db->bind(':m', $selectedMonth, PDO::PARAM_INT);
+                $db->bind(':y', $selectedYear, PDO::PARAM_INT);
+                $advTotal = (float)($db->single()->adv_total ?? 0);
+
+                // حساب الجزاءات لهذا الشهر
+                $db->query("SELECT SUM(amount) as sanc_total FROM sanctions WHERE employee_id = :eid AND MONTH(date) = :m AND YEAR(date) = :y AND type = 'deduction'");
+                $db->bind(':eid', $emp->id, PDO::PARAM_INT);
+                $db->bind(':m', $selectedMonth, PDO::PARAM_INT);
+                $db->bind(':y', $selectedYear, PDO::PARAM_INT);
+                $sancTotal = (float)($db->single()->sanc_total ?? 0);
+
+                // حساب أيام الغياب واستقطاع قيمتها (بافتراض الشهر 30 يوم)
+                $db->query("SELECT COUNT(id) as absent_days FROM attendance WHERE employee_id = :eid AND MONTH(date) = :m AND YEAR(date) = :y AND status = 'absent'");
+                $db->bind(':eid', $emp->id, PDO::PARAM_INT);
+                $db->bind(':m', $selectedMonth, PDO::PARAM_INT);
+                $db->bind(':y', $selectedYear, PDO::PARAM_INT);
+                $absentDays = (int)($db->single()->absent_days ?? 0);
+                
+                $dailyRate = $emp->salary / 30;
+                $absentDeduction = $dailyRate * $absentDays;
+
+                // تجميع الاستقطاعات وتخزينها في الكائن لعرضها في الواجهة
+                $emp->auto_deduction = $advTotal + $sancTotal + $absentDeduction;
+                $emp->advances_val = $advTotal;
+                $emp->sanctions_val = $sancTotal;
+                $emp->absences_val = $absentDeduction;
+                $emp->absent_days = $absentDays;
+            }
+
             $data = [
-                'title' => 'إصدار مسير رواتب',
+                'title' => "تجهيز رواتب شهر {$selectedMonth}/{$selectedYear}",
                 'employees' => $employees,
-                'flash' => $this->getFlash()
+                'selected_month' => $selectedMonth,
+                'selected_year' => $selectedYear,
+                'breadcrumb' => [
+                    ['label' => 'الرواتب', 'url' => 'payroll/index'],
+                    ['label' => 'تجهيز مسير', 'url' => '#']
+                ]
             ];
 
+            ob_start();
             $this->view('payroll/create', $data);
+            $content = ob_get_clean();
+            Layout::render($content, $data);
         }
     }
 
-    /**
-     * عرض كشف رواتب محدد بتفاصيله
-     */
     public function show(string $id = ''): void {
-        if (empty($id) || !is_numeric($id)) {
-            $this->redirect('payroll/index');
-        }
+        if (empty($id) || !is_numeric($id)) $this->redirect('payroll/index');
 
         $payrollId = (int)$id;
         $payroll = $this->payrollModel->getPayrollById($payrollId);
@@ -119,12 +162,18 @@ class PayrollController extends Controller {
         $details = $this->payrollModel->getPayrollDetails($payrollId);
 
         $data = [
-            'title' => 'كشف رواتب شهر ' . $payroll->month . ' لسنة ' . $payroll->year,
+            'title' => 'كشف رواتب شهر ' . $payroll->month . ' / ' . $payroll->year,
             'payroll' => $payroll,
             'details' => $details,
-            'flash' => $this->getFlash()
+            'breadcrumb' => [
+                ['label' => 'الرواتب', 'url' => 'payroll/index'],
+                ['label' => 'تفاصيل المسير', 'url' => '#']
+            ]
         ];
 
+        ob_start();
         $this->view('payroll/view', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 }

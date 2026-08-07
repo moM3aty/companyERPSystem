@@ -1,46 +1,33 @@
 <?php
 // app/controllers/SaleController.php
-
 class SaleController extends Controller {
-    
-    /** @var Sale */
     private Sale $saleModel;
 
     public function __construct() {
-        // حماية الوصول
         $this->requireAuth();
         $this->saleModel = $this->model('Sale');
     }
 
-    /**
-     * عرض صفحة سجل الفواتير
-     */
     public function index(): void {
         $invoices = $this->saleModel->getAllInvoices();
-        
-        $data = [
-            'title' => 'المبيعات والفواتير',
-            'invoices' => $invoices,
-            'flash' => $this->getFlash()
-        ];
-        
+        $data = ['title' => 'فواتير المبيعات', 'invoices' => $invoices];
+        ob_start();
         $this->view('sales/index', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    /**
-     * عرض وحفظ نموذج إنشاء الفاتورة (POS)
-     */
     public function create(): void {
         if ($this->isPost()) {
-            // تنظيف المدخلات
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             
+            $customerId = !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null;
             $customerName = trim($_POST['customer_name'] ?? 'عميل نقدي');
+            
             $products = $_POST['product_id'] ?? [];
             $quantities = $_POST['quantity'] ?? [];
             $prices = $_POST['price'] ?? [];
 
-            // تحقق من وجود منتجات
             if (empty($products)) {
                 $this->setFlash('error', 'يجب إضافة منتج واحد على الأقل للفاتورة.');
                 $this->redirect('sale/create');
@@ -48,21 +35,13 @@ class SaleController extends Controller {
 
             $totalAmount = 0.0;
             $items = [];
-            
-            // تجميع وتجهيز بيانات الأصناف
             foreach ($products as $i => $pid) {
                 $q = (int)($quantities[$i] ?? 0);
                 $p = (float)($prices[$i] ?? 0);
-                
                 if ($q > 0 && $p >= 0) {
                     $sub = $q * $p;
                     $totalAmount += $sub;
-                    $items[] = [
-                        'product_id' => (int)$pid,
-                        'quantity' => $q,
-                        'price' => $p,
-                        'subtotal' => $sub
-                    ];
+                    $items[] = ['product_id' => (int)$pid, 'quantity' => $q, 'price' => $p, 'subtotal' => $sub];
                 }
             }
 
@@ -70,84 +49,65 @@ class SaleController extends Controller {
                 $this->setFlash('error', 'بيانات المنتجات والكميات غير صحيحة.');
                 $this->redirect('sale/create');
             }
+            
+            $invoiceData = [
+                'customer_id' => $customerId,
+                'customer_name' => $customerName,
+                'total_amount' => $totalAmount
+            ];
 
-            // تنفيذ الحفظ عبر المودل
-            if ($this->saleModel->createInvoice($customerName, $totalAmount, $items)) {
-                $this->setFlash('success', 'تم إصدار الفاتورة بنجاح وخصم الكميات من المخزون.');
+            // الموديل سيقوم بخصم المخزون وإنشاء القيد المحاسبي للمبيعات وتحديث رصيد العميل
+            if ($this->saleModel->createInvoice($invoiceData, $items)) {
+                $this->setFlash('success', 'تم إصدار الفاتورة بنجاح. تم خصم المخزون وتوليد القيد المحاسبي الآلي للإيرادات.');
                 $this->redirect('sale/index');
             } else {
                 $this->setFlash('error', 'حدث خطأ أثناء إصدار الفاتورة. تأكد من توفر الكمية الكافية في المخزون.');
                 $this->redirect('sale/create');
             }
         } else {
-            // جلب المنتجات المتوفرة فقط (الكمية أكبر من صفر) لاستخدامها في واجهة البيع
             $db = Database::getInstance();
             $db->query('SELECT id, name, price, quantity FROM products WHERE quantity > 0 ORDER BY name ASC');
             $availableProducts = $db->resultSet();
+            $db->query('SELECT id, name FROM customers ORDER BY name ASC');
+            $customers = $db->resultSet();
             
-            $data = [
-                'title' => 'إنشاء فاتورة مبيعات',
-                'products' => $availableProducts,
-                'flash' => $this->getFlash()
-            ];
-            
+            $data = ['title' => 'إصدار فاتورة مبيعات جديدة', 'products' => $availableProducts, 'customers' => $customers];
+            ob_start();
             $this->view('sales/create', $data);
+            $content = ob_get_clean();
+            Layout::render($content, $data);
         }
     }
 
-    /**
-     * عرض تفاصيل وطباعة الفاتورة
-     * @param string $id
-     */
     public function show(string $id = ''): void {
-        if (empty($id) || !is_numeric($id)) {
-            $this->redirect('sale/index');
-        }
-
-        $invoiceId = (int)$id;
-        $invoice = $this->saleModel->getInvoiceById($invoiceId);
+        if (empty($id) || !is_numeric($id)) $this->redirect('sale/index');
         
+        $invoice = $this->saleModel->getInvoiceById((int)$id);
         if (!$invoice) {
-            $this->setFlash('error', 'الفاتورة المطلوبة غير موجودة في النظام.');
+            $this->setFlash('error', 'الفاتورة المطلوبة غير موجودة.');
             $this->redirect('sale/index');
         }
 
-        $items = $this->saleModel->getInvoiceItems($invoiceId);
+        $items = $this->saleModel->getInvoiceItems((int)$id);
+        $data = ['title' => 'تفاصيل الفاتورة', 'invoice' => $invoice, 'items' => $items];
         
-        $data = [
-            'title' => 'تفاصيل الفاتورة',
-            'invoice' => $invoice,
-            'items' => $items,
-            'flash' => $this->getFlash()
-        ];
-        
-        // يعتمد على ملف العرض sales/view.php
+        ob_start();
         $this->view('sales/view', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
-
+    
     public function commissions(): void {
-        $db = Database::getInstance();
+        $this->requireAnyRole(['admin', 'manager']);
         
-        // استعلام ذكي يجمع المبيعات لكل مندوب ويحسب العمولة (مثلاً 5%)
-        $sql = "SELECT u.name as rep_name, 
-                       COUNT(i.id) as total_invoices, 
-                       SUM(i.total_amount) as total_sales,
-                       (SUM(i.total_amount) * 0.05) as estimated_commission
-                FROM invoices i
-                JOIN users u ON i.sales_rep_id = u.id
-                GROUP BY u.id
-                ORDER BY total_sales DESC";
-                
-        $db->query($sql);
-        $commissions = $db->resultSet();
-
+        $commissionRate = 0.05; // 5% افتراضياً ويمكن جلبها من الإعدادات لاحقاً
+        $commissions = $this->saleModel->getSalesCommissions($commissionRate);
+        
         $data = [
-            'title' => 'تقرير عمولات المبيعات',
-            'commissions' => $commissions,
-            'flash' => $this->getFlash()
+            'title' => 'عمولات المبيعات (المندوبين)',
+            'commissions' => $commissions
         ];
-
-        // سنرسلها للفيو الخاص بالتقارير
+        
         ob_start();
         $this->view('sales/commissions', $data);
         $content = ob_get_clean();

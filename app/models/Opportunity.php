@@ -8,9 +8,6 @@ class Opportunity extends Model {
         $this->table = 'opportunities';
     }
 
-    /**
-     * جلب جميع الفرص مع بيانات العميل والموظف المسؤول
-     */
     public function getAllOpportunities(): array {
         $sql = "SELECT o.*, 
                        c.name as customer_name, 
@@ -24,9 +21,13 @@ class Opportunity extends Model {
         return $this->db->resultSet();
     }
 
-    /**
-     * إنشاء فرصة بيعية جديدة
-     */
+    public function getOpportunityById(int $id): ?object {
+        $sql = "SELECT * FROM {$this->table} WHERE id = :id LIMIT 1";
+        $this->db->query($sql);
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        return $this->db->single();
+    }
+
     public function createOpportunity(array $data): bool {
         $sql = "INSERT INTO {$this->table} 
                 (customer_id, title, description, stage, estimated_value, probability, expected_close_date, assigned_to, created_at) 
@@ -40,34 +41,50 @@ class Opportunity extends Model {
         $this->db->bind(':stage', $data['stage']);
         $this->db->bind(':estimated_value', $data['estimated_value']);
         $this->db->bind(':probability', $data['probability'], PDO::PARAM_INT);
-        
-        // معالجة التواريخ والمسؤول في حال كانت فارغة
-        if (empty($data['expected_close_date'])) {
-            $this->db->bind(':expected_close_date', null, PDO::PARAM_NULL);
-        } else {
-            $this->db->bind(':expected_close_date', $data['expected_close_date']);
-        }
-
-        if (empty($data['assigned_to'])) {
-            $this->db->bind(':assigned_to', null, PDO::PARAM_NULL);
-        } else {
-            $this->db->bind(':assigned_to', $data['assigned_to'], PDO::PARAM_INT);
-        }
+        $this->db->bind(':expected_close_date', empty($data['expected_close_date']) ? null : $data['expected_close_date']);
+        $this->db->bind(':assigned_to', empty($data['assigned_to']) ? null : $data['assigned_to'], PDO::PARAM_INT);
         
         return $this->db->execute();
     }
 
-    /**
-     * جلب فرصة بيعية واحدة
-     */
-    public function getOpportunityById(int $id): ?object {
-        $sql = "SELECT o.*, c.name as customer_name, u.name as assigned_name 
-                FROM {$this->table} o 
-                LEFT JOIN customers c ON o.customer_id = c.id 
-                LEFT JOIN users u ON o.assigned_to = u.id 
-                WHERE o.id = :id LIMIT 1";
+    // دالة التعديل (Update)
+    public function updateOpportunity(int $id, array $data): bool {
+        $sql = "UPDATE {$this->table} 
+                SET customer_id = :customer_id, title = :title, description = :description, 
+                    stage = :stage, estimated_value = :estimated_value, probability = :probability, 
+                    expected_close_date = :expected_close_date, assigned_to = :assigned_to 
+                WHERE id = :id";
+        
         $this->db->query($sql);
+        $this->db->bind(':customer_id', $data['customer_id'], PDO::PARAM_INT);
+        $this->db->bind(':title', $data['title']);
+        $this->db->bind(':description', $data['description']);
+        $this->db->bind(':stage', $data['stage']);
+        $this->db->bind(':estimated_value', $data['estimated_value']);
+        $this->db->bind(':probability', $data['probability'], PDO::PARAM_INT);
+        $this->db->bind(':expected_close_date', empty($data['expected_close_date']) ? null : $data['expected_close_date']);
+        $this->db->bind(':assigned_to', empty($data['assigned_to']) ? null : $data['assigned_to'], PDO::PARAM_INT);
         $this->db->bind(':id', $id, PDO::PARAM_INT);
-        return $this->db->single();
+        
+        return $this->db->execute();
+    }
+
+   public function deleteOpportunity(int $id): bool {
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id");
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        return $this->db->execute();
+    }
+
+    public function updateStage(int $id, string $stage): bool {
+        $sql = "UPDATE {$this->table} SET stage = :stage WHERE id = :id";
+        $this->db->query($sql);
+        $this->db->bind(':stage', $stage);
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        
+        if ($this->db->execute()) {
+            ActivityLog::logAction('UPDATE', 'Opportunities', $id, "تحديث مرحلة الفرصة البيعية إلى: {$stage}");
+            return true;
+        }
+        return false;
     }
 }

@@ -18,14 +18,12 @@ class SaleReturn extends Model {
         return $this->db->resultSet();
     }
 
-    public function createReturn(array $returnData, array $items): bool {
+    public function createSaleReturn(array $returnData, array $items): bool {
         try {
             $this->db->beginTransaction();
 
-            // 1. توليد رقم المرتجع
             $returnNumber = 'RET-' . date('Ymd') . '-' . str_pad((string)random_int(100, 999), 3, '0', STR_PAD_LEFT);
 
-            // 2. إدخال المرتجع الرئيسي
             $sqlMain = "INSERT INTO {$this->table} (return_number, invoice_id, total_refund, reason, created_by, created_at) 
                         VALUES (:return_number, :invoice_id, :total_refund, :reason, :created_by, NOW())";
             $this->db->query($sqlMain);
@@ -38,13 +36,11 @@ class SaleReturn extends Model {
 
             $returnId = $this->db->lastInsertId();
 
-            // 3. إدخال الأصناف המرتجعة وإعادتها للمخزون
             $sqlItem = "INSERT INTO sales_return_items (return_id, product_id, quantity, price, subtotal) 
                         VALUES (:return_id, :product_id, :quantity, :price, :subtotal)";
             $sqlRestoreStock = "UPDATE products SET quantity = quantity + :qty WHERE id = :pid";
 
             foreach ($items as $item) {
-                // إدراج الصنف המرتجع
                 $this->db->query($sqlItem);
                 $this->db->bind(':return_id', $returnId, PDO::PARAM_INT);
                 $this->db->bind(':product_id', $item['product_id'], PDO::PARAM_INT);
@@ -53,7 +49,6 @@ class SaleReturn extends Model {
                 $this->db->bind(':subtotal', $item['subtotal']);
                 $this->db->execute();
 
-                // إعادة الكمية إلى المخزون (Inventory Restoration)
                 $this->db->query($sqlRestoreStock);
                 $this->db->bind(':qty', $item['quantity'], PDO::PARAM_INT);
                 $this->db->bind(':pid', $item['product_id'], PDO::PARAM_INT);

@@ -43,7 +43,7 @@ $statusLabel = match ($lead->status) {
 
                 <div>
                     <span style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">تحديث الحالة</span>
-                    <form action="<?php echo URL_ROOT; ?>/lead/changeStatus/<?php echo $lead->id; ?>" method="POST" style="display:flex; gap:8px; margin-top:4px;">
+                    <form action="<?php echo URLROOT; ?>/lead/changeStatus/<?php echo $lead->id; ?>" method="POST" style="display:flex; gap:8px; margin-top:4px;">
                         <select name="status" style="flex:1; padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-family:'Cairo'; outline:none; font-size:13px;">
                             <option value="new" <?php echo $lead->status == 'new' ? 'selected' : ''; ?>>جديد</option>
                             <option value="contacted" <?php echo $lead->status == 'contacted' ? 'selected' : ''; ?>>تم التواصل</option>
@@ -90,7 +90,7 @@ $statusLabel = match ($lead->status) {
             <div style="padding:16px 20px; border-bottom:1px solid var(--border); background:#f8fafc;">
                 <h3 style="margin:0; font-size:15px; font-weight:700; color:var(--text-dark);"><i class="fas fa-phone-volume" style="color:var(--success);"></i> تسجيل متابعة أو اجتماع</h3>
             </div>
-            <form action="<?php echo URL_ROOT; ?>/lead/addFollowUp/<?php echo $lead->id; ?>" method="POST" style="padding:20px;">
+            <form action="<?php echo URLROOT; ?>/lead/addFollowUp/<?php echo $lead->id; ?>" method="POST" style="padding:20px;">
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
 
                     <div style="display:flex; flex-direction:column; gap:6px;">

@@ -137,7 +137,7 @@ $currentUrl = 'warehouse/index';
                 <div class="su-name"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'مدير النظام'); ?></div>
                 <div class="su-role"><?php echo htmlspecialchars($_SESSION['user_role'] ?? 'admin'); ?></div>
             </div>
-            <a href="<?php echo URL_ROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
+            <a href="<?php echo URLROOT; ?>/auth/logout" class="su-logout" title="تسجيل الخروج"><i class="fas fa-right-from-bracket"></i></a>
         </div>
     </aside>
 
@@ -148,9 +148,9 @@ $currentUrl = 'warehouse/index';
                 <div>
                     <div class="page-title"><?php echo $pageTitle; ?></div>
                     <div class="breadcrumb">
-                        <a href="<?php echo URL_ROOT; ?>/dashboard">الرئيسية</a>
+                        <a href="<?php echo URLROOT; ?>/dashboard">الرئيسية</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
-                        <a href="<?php echo URL_ROOT; ?>/warehouse/index">المستودعات</a>
+                        <a href="<?php echo URLROOT; ?>/warehouse/index">المستودعات</a>
                         <i class="fas fa-chevron-left" style="font-size:9px;"></i>
                         <span>مستودع جديد</span>
                     </div>
@@ -173,7 +173,7 @@ $currentUrl = 'warehouse/index';
             </div>
 
             <div class="form-card">
-                <form action="<?php echo URL_ROOT; ?>/warehouse/create" method="POST" id="whForm" novalidate>
+                <form action="<?php echo URLROOT; ?>/warehouse/create" method="POST" id="whForm" novalidate>
                     
                     <div class="form-section">
                         <div class="form-section-title"><span class="fst-icon fst-teal"><i class="fas fa-circle-info"></i></span> بيانات المستودع</div>
@@ -210,7 +210,7 @@ $currentUrl = 'warehouse/index';
                     
                     <div class="form-actions">
                         <button type="submit" class="btn-submit" id="btnSubmit"><i class="fas fa-save"></i> حفظ المستودع</button>
-                        <a href="<?php echo URL_ROOT; ?>/warehouse/index" class="btn-cancel">إلغاء</a>
+                        <a href="<?php echo URLROOT; ?>/warehouse/index" class="btn-cancel">إلغاء</a>
                     </div>
                 </form>
             </div>

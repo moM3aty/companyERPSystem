@@ -1,49 +1,51 @@
-<div style="background:var(--card-bg); border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow-sm); overflow:hidden; max-width:800px; margin:0 auto;">
-    
-    <div style="padding:24px 30px; border-bottom:1px solid var(--border); background:#f8fafc;">
-        <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-dark); display:flex; align-items:center; gap:8px;">
-            <i class="fas fa-user-shield" style="color:var(--primary);"></i> بيانات المستخدم الجديد
-        </h3>
+<?php
+// المسار: app/views/users/create.php
+?>
+
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-user-shield text-primary"></i> إنشاء حساب مستخدم جديد</h3>
     </div>
 
-    <form action="<?php echo URL_ROOT; ?>/user/create" method="POST">
-        <div style="padding:30px; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-            
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <label style="font-size:13px; font-weight:600; color:var(--text-body);">الاسم الكامل <span style="color:var(--danger);">*</span></label>
-                <input type="text" name="name" required style="padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-family:'Cairo'; outline:none;" placeholder="مثال: محمد عبدالله">
-            </div>
+    <form action="<?php echo URLROOT; ?>/user/create" method="POST">
+        <div class="card-body">
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label">الاسم الكامل <span class="required">*</span></label>
+                    <input type="text" name="name" class="form-control" required placeholder="مثال: محمد عبدالله">
+                </div>
 
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <label style="font-size:13px; font-weight:600; color:var(--text-body);">البريد الإلكتروني (للدخول) <span style="color:var(--danger);">*</span></label>
-                <input type="email" name="email" required style="padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-family:'Cairo'; outline:none; direction:ltr; text-align:right;" placeholder="user@company.com">
-            </div>
+                <div class="form-group">
+                    <label class="form-label">البريد الإلكتروني (للدخول) <span class="required">*</span></label>
+                    <input type="email" name="email" class="form-control font-monospace" required style="direction:ltr; text-align:right;" placeholder="user@company.com">
+                </div>
 
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <label style="font-size:13px; font-weight:600; color:var(--text-body);">كلمة المرور الافتراضية <span style="color:var(--danger);">*</span></label>
-                <input type="password" name="password" required style="padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-family:'Cairo'; outline:none; direction:ltr; text-align:right;" placeholder="••••••••">
-                <span style="font-size:11px; color:var(--text-muted);">سيتم تشفير كلمة المرور فور حفظها.</span>
-            </div>
+                <div class="form-group">
+                    <label class="form-label">كلمة المرور الافتراضية <span class="required">*</span></label>
+                    <input type="password" name="password" class="form-control font-monospace" required style="direction:ltr; text-align:right;" placeholder="••••••••">
+                    <small class="text-muted"><i class="fas fa-lock"></i> سيتم تشفير كلمة المرور بقوة 256-bit.</small>
+                </div>
 
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <label style="font-size:13px; font-weight:600; color:var(--text-body);">رقم الجوال</label>
-                <input type="text" name="phone" style="padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-family:'Cairo'; outline:none; direction:ltr; text-align:right;" placeholder="05XXXXXXXX">
-            </div>
+                <div class="form-group">
+                    <label class="form-label">رقم الجوال</label>
+                    <input type="text" name="phone" class="form-control font-monospace" style="direction:ltr; text-align:right;" placeholder="05XXXXXXXX">
+                </div>
 
-            <div style="display:flex; flex-direction:column; gap:8px; grid-column:1/-1;">
-                <label style="font-size:13px; font-weight:600; color:var(--text-body);">الصلاحية والدور <span style="color:var(--danger);">*</span></label>
-                <select name="role" required style="padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-family:'Cairo'; outline:none;">
-                    <option value="viewer">عارض (صلاحيات محدودة للرؤية فقط)</option>
-                    <option value="editor">محرر (صلاحيات الإضافة والتعديل)</option>
-                    <option value="admin">مدير عام (صلاحيات مطلقة للنظام)</option>
-                </select>
+                <div class="form-group full-width">
+                    <label class="form-label">الصلاحية والدور <span class="required">*</span></label>
+                    <select name="role" class="form-control" required>
+                        <option value="employee">موظف / عارض (صلاحيات محدودة للرؤية فقط)</option>
+                        <option value="editor">محرر بيانات (صلاحيات الإضافة والتعديل)</option>
+                        <option value="manager">مدير قسم (صلاحيات متقدمة مع اعتماد الطلبات)</option>
+                        <option value="admin">مدير عام (صلاحيات مطلقة وحذف)</option>
+                    </select>
+                </div>
             </div>
-
         </div>
         
-        <div style="padding:20px 30px; background:#f8fafc; border-top:1px solid var(--border); display:flex; gap:12px;">
-            <button type="submit" style="padding:10px 24px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-family:'Cairo'; font-weight:700; cursor:pointer;"><i class="fas fa-save"></i> إنشاء الحساب</button>
-            <a href="<?php echo URL_ROOT; ?>/user/index" style="padding:10px 24px; background:transparent; border:1px solid var(--border); color:var(--text-body); border-radius:8px; text-decoration:none; font-weight:600;">إلغاء</a>
+        <div class="card-footer d-flex gap-3">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> إنشاء الحساب</button>
+            <a href="<?php echo URLROOT; ?>/user/index" class="btn btn-secondary">إلغاء</a>
         </div>
     </form>
 </div>

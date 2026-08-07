@@ -129,14 +129,17 @@ class Database {
     /**
      * جلب آخر ID تم إدخاله
      */
-    public function lastInsertId(): string {
+     public function lastInsertId(): string {
         return $this->pdo->lastInsertId();
+    }
+      public function inTransaction(): bool {
+        return $this->pdo !== null && $this->pdo->inTransaction();
     }
     
     /**
      * بدء معاملة قاعدة بيانات
      */
-    public function beginTransaction(): void {
+public function beginTransaction(): void {
         $this->pdo->beginTransaction();
     }
     

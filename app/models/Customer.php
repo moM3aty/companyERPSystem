@@ -1,170 +1,84 @@
 <?php
-// app/models/Customer.php
+// المسار: app/models/Customer.php
 
 class Customer extends Model {
     
-    protected string $table = 'customers';
-    protected string $primaryKey = 'id';
-    
+    public function __construct() {
+        parent::__construct();
+        $this->table = 'customers';
+    }
+
     /**
-     * جلب كل العملاء مع عدد الفواتير والمشتريات
+     * جلب جميع العملاء مع إحصائياتهم (عدد الفواتير وإجمالي المشتريات)
      */
-    public function getCustomers() {
-        $this->db->query('
-            SELECT c.*,
-                   COUNT(DISTINCT i.id) as invoice_count,
-                   COALESCE(SUM(i.total_amount), 0) as total_purchases
-            FROM customers c
-            LEFT JOIN invoices i ON c.id = i.customer_id
-            GROUP BY c.id
-            ORDER BY c.id DESC
-        ');
+    public function getAllCustomers(): array {
+        $sql = "SELECT c.*, 
+                       COUNT(i.id) as invoice_count, 
+                       COALESCE(SUM(i.total_amount), 0) as total_purchases
+                FROM {$this->table} c
+                LEFT JOIN invoices i ON c.id = i.customer_id
+                GROUP BY c.id
+                ORDER BY c.created_at DESC";
+                
+        $this->db->query($sql);
         return $this->db->resultSet();
     }
-    
+
     /**
-     * جلب عميل واحد بالمعرّف
+     * جلب بيانات عميل واحد بالمعرف الخاص به
      */
-    public function getCustomerById($id) {
-        $this->db->query('
-            SELECT c.*,
-                   COUNT(DISTINCT i.id) as invoice_count,
-                   COALESCE(SUM(i.total_amount), 0) as total_purchases
-            FROM customers c
-            LEFT JOIN invoices i ON c.id = i.customer_id
-            WHERE c.id = :id
-            GROUP BY c.id
-        ');
+    public function getCustomerById(int $id): ?object {
+        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id LIMIT 1");
         $this->db->bind(':id', $id, PDO::PARAM_INT);
         return $this->db->single();
     }
-    
-    /**
-     * البحث في العملاء بالاسم أو الهاتف
-     */
-    public function searchCustomers($query) {
-        $this->db->query('
-            SELECT id, name, phone, type, balance 
-            FROM customers 
-            WHERE name LIKE :q OR phone LIKE :q
-            ORDER BY name ASC
-            LIMIT 50
-        ');
-        $this->db->bind(':q', '%' . $query . '%');
-        return $this->db->resultSet();
-    }
-    
-    /**
-     * جلب عدد العملاء
-     */
-    public function getCustomerCount() {
-        $this->db->query("SELECT COUNT(*) as total FROM customers");
-        $result = $this->db->single();
-        return $result ? (int) $result->total : 0;
-    }
-    
-    /**
-     * جلب إجمالي الذمم المدينة
-     */
-    public function getTotalReceivables() {
-        $this->db->query("
-            SELECT COALESCE(SUM(balance), 0) as total 
-            FROM customers 
-            WHERE balance > 0
-        ");
-        $result = $this->db->single();
-        return $result ? (float) $result->total : 0.0;
-    }
-    
+
     /**
      * إضافة عميل جديد
      */
-    public function addCustomer($data) {
-        $this->db->query('
-            INSERT INTO customers 
-                (name, email, phone, address, type, balance, notes)
-            VALUES 
-                (:name, :email, :phone, :address, :type, :balance, :notes)
-        ');
+    public function createCustomer(array $data): bool {
+        $sql = "INSERT INTO {$this->table} (name, phone, email, address, type, balance, created_at) 
+                VALUES (:name, :phone, :email, :address, :type, :balance, NOW())";
         
+        $this->db->query($sql);
         $this->db->bind(':name', $data['name']);
-        $this->db->bind(':email', $data['email'] ?? null);
-        $this->db->bind(':phone', $data['phone'] ?? null);
-        $this->db->bind(':address', $data['address'] ?? null);
-        $this->db->bind(':type', $data['type'] ?? 'individual');
-        $this->db->bind(':balance', $data['balance'] ?? 0);
-        $this->db->bind(':notes', $data['notes'] ?? null);
-        $this->db->execute();
+        $this->db->bind(':phone', $data['phone']);
+        $this->db->bind(':email', $data['email']);
+        $this->db->bind(':address', $data['address']);
+        $this->db->bind(':type', $data['type']);
+        $this->db->bind(':balance', $data['balance']);
         
-        return (int) $this->db->lastInsertId();
+        return $this->db->execute();
     }
-    
+
     /**
-     * تحديث بيانات عميل
+     * تحديث بيانات العميل
      */
-    public function updateCustomer($data, $id) {
-        $this->db->query('
-            UPDATE customers SET 
-                name = :name, 
-                email = :email, 
-                phone = :phone, 
-                address = :address, 
-                type = :type, 
-                notes = :notes
-            WHERE id = :id
-        ');
-        
+    public function updateCustomer(int $id, array $data): bool {
+        $sql = "UPDATE {$this->table} 
+                SET name = :name, 
+                    phone = :phone, 
+                    email = :email, 
+                    address = :address, 
+                    type = :type 
+                WHERE id = :id";
+                
+        $this->db->query($sql);
         $this->db->bind(':name', $data['name']);
-        $this->db->bind(':email', $data['email'] ?? null);
-        $this->db->bind(':phone', $data['phone'] ?? null);
-        $this->db->bind(':address', $data['address'] ?? null);
-        $this->db->bind(':type', $data['type'] ?? 'individual');
-        $this->db->bind(':notes', $data['notes'] ?? null);
+        $this->db->bind(':phone', $data['phone']);
+        $this->db->bind(':email', $data['email']);
+        $this->db->bind(':address', $data['address']);
+        $this->db->bind(':type', $data['type']);
         $this->db->bind(':id', $id, PDO::PARAM_INT);
         
         return $this->db->execute();
     }
-    
-    /**
-     * حذف عميل (يتحقق من وجود فواتير)
-     */
-    public function deleteCustomer($id) {
-        // التحقق من وجود فواتير قيد التنفيذ
-        $this->db->query("SELECT COUNT(*) as cnt FROM invoices WHERE customer_id = :cid");
-        $this->db->bind(':cid', $id, PDO::PARAM_INT);
-        $result = $this->db->single();
-        
-        if ($result && $result->cnt > 0) {
-            throw new \Exception('لا يمكن حذف العميل - لديه ' . $result->cnt . ' فاتورة');
-        }
-        
-        return $this->delete($id);
-    }
-    
-    /**
-     * جلب أعلى العملاء شراءً (للتقارير)
-     */
-    public function getTopCustomers($limit = 10) {
-        $this->db->query('
-            SELECT c.id, c.name, c.type,
-                   COUNT(DISTINCT i.id) as invoice_count,
-                   COALESCE(SUM(i.total_amount), 0) as total_purchases
-            FROM customers c
-            LEFT JOIN invoices i ON c.id = i.customer_id
-            GROUP BY c.id
-            ORDER BY total_purchases DESC
-            LIMIT :lim
-        ');
-        $this->db->bind(':lim', $limit, PDO::PARAM_INT);
-        return $this->db->resultSet();
-    }
 
     /**
-     * تحديث رصيد العميل (يستخدم عند إضافة فاتورة أو دفعة)
+     * حذف العميل
      */
-    public function updateBalance($id, $amount) {
-        $this->db->query('UPDATE customers SET balance = balance + :amount WHERE id = :id');
-        $this->db->bind(':amount', $amount);
+    public function deleteCustomer(int $id): bool {
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id");
         $this->db->bind(':id', $id, PDO::PARAM_INT);
         return $this->db->execute();
     }

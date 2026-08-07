@@ -79,7 +79,7 @@ $opportunity = $data['opportunity'] ?? null;
     </div>
 
     <div style="padding:20px 30px; background:#f8fafc; border-top:1px solid var(--border); display:flex; justify-content:flex-start; align-items:center; gap: 10px;">
-        <a href="<?php echo URL_ROOT; ?>/opportunity/index" style="padding:10px 20px; border:1px solid var(--border); color:var(--text-body); border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; background:#fff;"><i class="fas fa-arrow-right"></i> عودة للقائمة</a>
+        <a href="<?php echo URLROOT; ?>/opportunity/index" style="padding:10px 20px; border:1px solid var(--border); color:var(--text-body); border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; background:#fff;"><i class="fas fa-arrow-right"></i> عودة للقائمة</a>
         <button style="padding:10px 20px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-family:'Cairo'; font-weight:600; cursor:not-allowed; font-size:13px; opacity: 0.7;" title="غير مفعل حالياً"><i class="fas fa-pen"></i> تعديل الفرصة</button>
     </div>
 </div>
