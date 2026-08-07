@@ -1,4 +1,6 @@
 <?php
+// app/controllers/WarehouseController.php
+
 class WarehouseController extends Controller {
     
     public function __construct() {
@@ -12,13 +14,22 @@ class WarehouseController extends Controller {
         $data = [
             'title' => 'المستودعات',
             'warehouses' => $warehouses,
-            'flash' => $this->getFlash()
+            'flash' => $this->getFlash(),
+            'breadcrumb' => [
+                ['label' => 'المخزون', 'url' => '#'],
+                ['label' => 'المستودعات', 'url' => 'warehouse/index']
+            ]
         ];
+        
+        // الإصلاح: استخدام Layout::render لعرض التصميم الشامل
+        ob_start();
         $this->view('warehouse/index', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
     public function create() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             $data = [
                 'name' => trim($_POST['name']),
@@ -39,7 +50,11 @@ class WarehouseController extends Controller {
                 'title' => 'إضافة مستودع جديد',
                 'flash' => $this->getFlash()
             ];
+            
+            ob_start();
             $this->view('warehouse/create', $data);
+            $content = ob_get_clean();
+            Layout::render($content, $data);
         }
     }
 
@@ -66,11 +81,15 @@ class WarehouseController extends Controller {
             'transfers' => $transfers,
             'flash' => $this->getFlash()
         ];
+        
+        ob_start();
         $this->view('warehouse/transfers', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
     public function createTransfer() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             
             $fromWh = (int) $_POST['from_warehouse'];
@@ -88,7 +107,7 @@ class WarehouseController extends Controller {
             try {
                 $transferId = $warehouseModel->transferStock(
                     $fromWh, $toWh, $productId, $quantity,
-                    $_SESSION['user_id'], $notes
+                    Session::getUserId(), $notes
                 );
                 $this->setFlash('success', 'تم نقل المخزون بنجاح (رقم الطلب: ' . $transferId . ')');
             } catch (Exception $e) {
@@ -96,12 +115,12 @@ class WarehouseController extends Controller {
             }
             $this->redirect('warehouse/transfers');
         } else {
-            // جلب المستودعات والمنتجات
             $db = Database::getInstance();
             $db->query('SELECT * FROM warehouses ORDER BY name');
             $warehouses = $db->resultSet();
+            
             $productModel = $this->model('Product');
-            $products = $productModel->getProducts();
+            $products = $productModel->getAllProducts();
             
             $data = [
                 'title' => 'نقل مخزون جديد',
@@ -109,7 +128,11 @@ class WarehouseController extends Controller {
                 'products' => $products,
                 'flash' => $this->getFlash()
             ];
+            
+            ob_start();
             $this->view('warehouse/create_transfer', $data);
+            $content = ob_get_clean();
+            Layout::render($content, $data);
         }
     }
 }

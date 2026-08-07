@@ -1,53 +1,85 @@
 <?php
-// المسار: app/controllers/CollectionController.php
-require_once 'app/models/SalesCollection.php';
-require_once 'app/models/Invoice.php'; // لافتراض وجوده لجلب الفواتير المستحقة
+// app/controllers/CollectionController.php
 
-class CollectionController {
+class CollectionController extends Controller {
+    
     private $collectionModel;
-    private $db;
+    private $treasuryModel;
 
-    public function __construct($db) {
-        $this->db = $db;
-        $this->collectionModel = new SalesCollection($db);
+    public function __construct() {
+        $this->requireAuth();
+        $this->collectionModel = $this->model('SalesCollection');
+        $this->treasuryModel = $this->model('Treasury');
     }
 
-    public function index() {
+    public function index(): void {
         $collections = $this->collectionModel->getAllCollections();
-        require 'app/views/collections/index.php';
+        
+        $data = [
+            'title' => 'تحصيلات الفواتير',
+            'collections' => $collections,
+            'breadcrumb' => [
+                ['label' => 'المالية', 'url' => '#'],
+                ['label' => 'التحصيلات', 'url' => 'collection/index']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('collections/index', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    public function create() {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    public function create(): void {
+        if ($this->isPost()) {
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            
             $data = [
                 'receipt_number' => 'REC-' . time(),
-                'invoice_id' => $_POST['invoice_id'],
-                'treasury_id' => $_POST['treasury_id'],
-                'amount' => $_POST['amount'],
-                'collection_date' => $_POST['collection_date'],
-                'payment_method' => $_POST['payment_method'],
-                'reference' => $_POST['reference'] ?? null,
-                'notes' => $_POST['notes'] ?? null,
-                'created_by' => $_SESSION['user_id'] ?? 1
+                'invoice_id' => (int)$_POST['invoice_id'],
+                'treasury_id' => (int)$_POST['treasury_id'],
+                'amount' => (float)$_POST['amount'],
+                'collection_date' => trim($_POST['collection_date']),
+                'payment_method' => trim($_POST['payment_method']),
+                'reference' => trim($_POST['reference'] ?? ''),
+                'notes' => trim($_POST['notes'] ?? ''),
+                'created_by' => Session::getUserId()
             ];
 
+            if (empty($data['invoice_id']) || empty($data['treasury_id']) || $data['amount'] <= 0) {
+                $this->setFlash('error', 'البيانات المدخلة غير صحيحة، تأكد من الفاتورة والخزنة والمبلغ.');
+                $this->redirect('collection/create');
+            }
+
             if ($this->collectionModel->addCollection($data)) {
-                header("Location: /collections?success=1");
-                exit;
+                $this->setFlash('success', 'تم تسجيل التحصيل وتحديث أرصدة الخزنة بنجاح.');
+                $this->redirect('collection/index');
             } else {
-                $error = "حدث خطأ أثناء تسجيل التحصيل.";
-                // إعادة تحميل الواجهة مع الخطأ
+                $this->setFlash('error', 'حدث خطأ أثناء تسجيل التحصيل في قاعدة البيانات.');
+                $this->redirect('collection/create');
             }
         } else {
-            // جلب البيانات للدروب داون (الخزائن والفواتير)
-            $treasuryStmt = $this->db->query("SELECT id, name FROM treasuries");
-            $treasuries = $treasuryStmt->fetchAll(PDO::FETCH_ASSOC);
+            $db = Database::getInstance();
+            $db->query("SELECT id, name FROM treasuries");
+            $treasuries = $db->resultSet();
             
-            $invoiceStmt = $this->db->query("SELECT id, invoice_number, total FROM invoices ORDER BY id DESC");
-            $invoices = $invoiceStmt->fetchAll(PDO::FETCH_ASSOC);
+            $db->query("SELECT id, invoice_number, total_amount as total FROM invoices ORDER BY id DESC");
+            $invoices = $db->resultSet();
 
-            require 'app/views/collections/create.php';
+            $data = [
+                'title' => 'تسجيل تحصيل جديد',
+                'treasuries' => $treasuries,
+                'invoices' => $invoices,
+                'breadcrumb' => [
+                    ['label' => 'التحصيلات', 'url' => 'collection/index'],
+                    ['label' => 'جديد', 'url' => '#']
+                ]
+            ];
+
+            ob_start();
+            $this->view('collections/create', $data);
+            $content = ob_get_clean();
+            Layout::render($content, $data);
         }
     }
 }
-?>

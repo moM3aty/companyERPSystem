@@ -1,6 +1,6 @@
 <?php
 // المسار: app/views/products/edit.php
-$product = $data['product'];
+$product = $product ?? ($data['product'] ?? null);
 $categories = $data['categories'] ?? [];
 ?>
 

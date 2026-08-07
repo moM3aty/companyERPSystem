@@ -23,6 +23,20 @@ class Timesheet extends Model {
         return $this->db->resultSet();
     }
 
+    // إضافة الدالة المفقودة لجلب كافة سجلات الأوقات للشركة الحالية
+    public function getAllTimesheets(): array {
+        $sql = "SELECT pt.*, e.name as employee_name, t.title as task_title, p.name as project_name
+                FROM {$this->table} pt 
+                JOIN employees e ON pt.employee_id = e.id 
+                LEFT JOIN project_tasks t ON pt.task_id = t.id 
+                JOIN projects p ON pt.project_id = p.id
+                WHERE p.company_id = :cid
+                ORDER BY pt.date DESC, pt.start_time DESC";
+        $this->db->query($sql);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        return $this->db->resultSet();
+    }
+
     /**
      * تسجيل وقت جديد (Log Time)
      */

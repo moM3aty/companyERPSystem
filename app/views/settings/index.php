@@ -377,6 +377,14 @@ $sysStats = $data['system_stats'] ?? [];
                             <label class="s-label">رقم هاتف التواصل</label>
                             <input type="text" name="company_phone" class="s-input" value="<?php echo htmlspecialchars($settings['company_phone'] ?? ''); ?>" style="direction:ltr;text-align:right;" placeholder="+966 50 000 0000">
                         </div>
+                        
+                        <!-- الحقل الجديد للرقم الضريبي -->
+                        <div class="s-group full border-top pt-4 mt-2">
+                            <label class="s-label"><i class="fas fa-file-invoice text-success me-1"></i> الرقم الضريبي (VAT Number) لمتطلبات الفاتورة الإلكترونية</label>
+                            <input type="text" name="vat_number" class="s-input font-monospace fw-bold" value="<?php echo htmlspecialchars($settings['vat_number'] ?? ''); ?>" style="direction:ltr;text-align:right;" placeholder="أدخل الرقم الضريبي المكون من 15 خانة">
+                            <div style="font-size:12px; color:#64748b; margin-top:6px;"><i class="fas fa-info-circle"></i> هذا الرقم سيتم استخدامه في توليد رمز الـ QR Code الخاص بالفواتير المعتمدة.</div>
+                        </div>
+
                         <div class="s-group">
                             <label class="s-label">العملة الافتراضية <span style="color:#ef4444;">*</span></label>
                             <select name="currency" class="s-input">

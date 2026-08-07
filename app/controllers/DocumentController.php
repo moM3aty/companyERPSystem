@@ -21,10 +21,10 @@ class DocumentController extends Controller {
         $documents = $this->docModel->getAllDocuments($userId, $userRole);
         
         $data = [
-            'title'     => 'نظام إدارة الوثائق (DMS)',
-            'documents' => $documents,
-            'flash'     => $this->getFlash(),
-            'breadcrumb'=> [
+            'title'      => 'نظام إدارة الوثائق (DMS)',
+            'documents'  => $documents,
+            'flash'      => $this->getFlash(),
+            'breadcrumb' => [
                 ['label' => 'الأصول والعقود', 'url' => '#'],
                 ['label' => 'إدارة الوثائق', 'url' => 'document/index']
             ]
@@ -85,16 +85,17 @@ class DocumentController extends Controller {
                 // نقل الملف
                 if (move_uploaded_file($fileTmpPath, $destPath)) {
                     $data = [
-                        'title'       => $title,
-                        'file_name'   => $newFileName,
-                        'file_type'   => $fileExtension,
-                        'file_size'   => $fileSize,
-                        'folder_path' => '/uploads/documents/',
-                        'uploaded_by' => Session::getUserId(),
-                        'access_level'=> $accessLevel
+                        'title'        => $title,
+                        'file_name'    => $newFileName,
+                        'file_type'    => $fileExtension,
+                        'file_size'    => $fileSize,
+                        'file_path'    => '/uploads/documents/', // تصحيح الاسم ليتطابق مع قاعدة البيانات والموديل
+                        'uploaded_by'  => Session::getUserId(),
+                        'access_level' => $accessLevel
                     ];
 
-                    if ($this->docModel->saveDocumentInfo($data)) {
+                    // تم تغيير الدالة لتصبح createDocument بدلاً من saveDocumentInfo
+                    if ($this->docModel->createDocument($data)) {
                         $this->setFlash('success', 'تم رفع الوثيقة وأرشفتها بنجاح.');
                         $this->redirect('document/index');
                     } else {
@@ -143,12 +144,13 @@ class DocumentController extends Controller {
         }
 
         // تحقق من الصلاحيات إذا كان الملف خاصاً (Private)
-        if ($doc->access_level === 'private' && $doc->uploaded_by !== Session::getUserId() && Session::getUserRole() !== 'admin') {
+        if (isset($doc->access_level) && $doc->access_level === 'private' && $doc->uploaded_by !== Session::getUserId() && Session::getUserRole() !== 'admin') {
             $this->setFlash('error', 'ليس لديك صلاحية لتنزيل هذه الوثيقة.');
             $this->redirect('document/index');
         }
 
-        $filePath = dirname(APP_ROOT) . '/public' . $doc->folder_path . $doc->file_name;
+        // تصحيح الاسم لاستخدام file_path بدلاً من folder_path
+        $filePath = dirname(APP_ROOT) . '/public' . $doc->file_path . $doc->file_name;
 
         if (file_exists($filePath)) {
             // إجبار المتصفح على التنزيل
@@ -180,10 +182,11 @@ class DocumentController extends Controller {
                 // تحقق من الصلاحيات للحذف
                 if (Session::getUserRole() === 'admin' || $doc->uploaded_by === Session::getUserId()) {
                     
-                    $filePath = dirname(APP_ROOT) . '/public' . $doc->folder_path . $doc->file_name;
+                    // تصحيح الاسم لاستخدام file_path بدلاً من folder_path
+                    $filePath = dirname(APP_ROOT) . '/public' . $doc->file_path . $doc->file_name;
                     
                     // حذف من الداتابيز
-                    if ($this->docModel->delete($docId)) {
+                    if ($this->docModel->deleteDocument($docId)) {
                         // حذف الملف الفعلي من السيرفر
                         if (file_exists($filePath)) {
                             unlink($filePath);

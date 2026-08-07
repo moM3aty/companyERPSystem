@@ -39,6 +39,7 @@ class SettingsController extends Controller {
             'company_name'  => 'شركتي',
             'company_email' => 'info@company.com',
             'company_phone' => '',
+            'vat_number'    => '',
             'currency'      => 'ر.س',
             'tax_rate'      => '15',
             'company_logo'  => ''
@@ -75,7 +76,6 @@ class SettingsController extends Controller {
             'breadcrumb'  => [['label' => 'الإعدادات', 'url' => 'settings/index']]
         ];
 
-        // 🔴 تم إصلاح الـ Layout هنا
         ob_start();
         $this->view('settings/index', $data);
         $content = ob_get_clean();
@@ -88,10 +88,11 @@ class SettingsController extends Controller {
         $model->updateSetting('company_name', trim($_POST['company_name'] ?? ''));
         $model->updateSetting('company_email', trim($_POST['company_email'] ?? ''));
         $model->updateSetting('company_phone', trim($_POST['company_phone'] ?? ''));
+        $model->updateSetting('vat_number', trim($_POST['vat_number'] ?? ''));
         $model->updateSetting('currency', trim($_POST['currency'] ?? 'ر.س'));
         $model->updateSetting('tax_rate', trim($_POST['tax_rate'] ?? '15'));
 
-        // معالجة رفع اللوجو
+        // إصلاح مسار رفع الصورة (بدون سلاش في البداية لتسهيل القراءة في الـ View)
         if (isset($_FILES['company_logo']) && $_FILES['company_logo']['error'] === UPLOAD_ERR_OK) {
             $uploadDir = dirname(APP_ROOT) . '/public/uploads/';
             if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
@@ -100,9 +101,10 @@ class SettingsController extends Controller {
             $allowed = ['jpg', 'jpeg', 'png', 'svg', 'webp'];
             
             if (in_array($fileExt, $allowed)) {
-                $fileName = 'logo_' . time() . '.' . $fileExt;
+                $fileName = 'logo_' . Session::get('company_id') . '_' . time() . '.' . $fileExt;
                 if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $uploadDir . $fileName)) {
-                    $model->updateSetting('company_logo', '/uploads/' . $fileName);
+                    // حفظ المسار بشكل صحيح
+                    $model->updateSetting('company_logo', 'uploads/' . $fileName);
                 }
             }
         }
@@ -112,7 +114,6 @@ class SettingsController extends Controller {
     }
 
     private function saveProfile($userModel) {
-        // ... existing code ...
         $name  = trim($_POST['profile_name'] ?? '');
         $email = trim($_POST['profile_email'] ?? '');
         $phone = trim($_POST['profile_phone'] ?? '');
@@ -138,7 +139,6 @@ class SettingsController extends Controller {
     }
 
     private function changePassword($userModel) {
-        // ... existing code ...
         $current     = $_POST['current_password'] ?? '';
         $newPassword = $_POST['new_password'] ?? '';
         $confirm     = $_POST['confirm_password'] ?? '';

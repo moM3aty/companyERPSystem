@@ -2,114 +2,85 @@
 // app/models/Supplier.php
 
 class Supplier extends Model {
-
+    
     public function __construct() {
         parent::__construct();
         $this->table = 'suppliers';
     }
 
-    /**
-     * جلب الموردين مع الفلترة والبحث
-     * 
-     * @param string $search نص البحث (اسم أو هاتف)
-     * @param string $filter نوع المورد (all, individual, company)
-     * @return array
-     */
-    public function getFilteredSuppliers(string $search = '', string $filter = 'all'): array {
-        $sql = "SELECT * FROM {$this->table} WHERE 1=1";
-        $params = [];
-
-        if (!empty($search)) {
-            $sql .= " AND (name LIKE :search OR phone LIKE :search OR contact_person LIKE :search)";
-            $params[':search'] = "%{$search}%";
-        }
-
-        if ($filter !== 'all' && in_array($filter, ['individual', 'company'])) {
-            $sql .= " AND type = :type";
-            $params[':type'] = $filter;
-        }
-
-        $sql .= " ORDER BY created_at DESC";
-
-        $this->db->query($sql);
-        foreach ($params as $param => $value) {
-            $this->db->bind($param, $value);
-        }
-
+    public function getAllSuppliers(): array {
+        $this->db->query("SELECT * FROM {$this->table} WHERE company_id = :cid ORDER BY id DESC");
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->resultSet();
     }
 
-    /**
-     * حساب إجمالي المستحقات (الديون) لجميع الموردين
-     * 
-     * @return float
-     */
     public function getTotalPayables(): float {
-        $this->db->query("SELECT SUM(balance) as total FROM {$this->table} WHERE balance > 0");
-        $result = $this->db->single();
-        return $result ? (float)$result->total : 0.0;
+        $this->db->query("SELECT COALESCE(SUM(balance), 0) as total FROM {$this->table} WHERE company_id = :cid AND balance > 0");
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        $row = $this->db->single();
+        return (float)($row->total ?? 0);
     }
 
-    /**
-     * جلب أوامر الشراء الخاصة بمورد معين
-     * 
-     * @param int $supplierId
-     * @return array
-     */
-    public function getPurchaseOrders(int $supplierId): array {
-        $this->db->query("SELECT * FROM purchase_orders WHERE supplier_id = :supplier_id ORDER BY created_at DESC");
-        $this->db->bind(':supplier_id', $supplierId, PDO::PARAM_INT);
+    // إضافة الدالة المفقودة للـ Controller مع دعم عزل الـ SaaS
+    public function getFilteredSuppliers(string $search = ''): array {
+        if(empty($search)) {
+            return $this->getAllSuppliers();
+        }
+        $this->db->query("SELECT * FROM {$this->table} WHERE company_id = :cid AND (name LIKE :search OR company LIKE :search OR phone LIKE :search) ORDER BY id DESC");
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        $this->db->bind(':search', '%' . $search . '%');
         return $this->db->resultSet();
     }
 
-    /**
-     * جلب الدفعات السابقة التي تمت لهذا المورد (عبر أوامر الشراء)
-     * 
-     * @param int $supplierId
-     * @return array
-     */
-    public function getPayments(int $supplierId): array {
-        // نجلب الدفعات المرتبطة بأوامر شراء تخص هذا المورد
-        $sql = "SELECT p.* 
-                FROM payments p
-                INNER JOIN purchase_orders po ON p.reference_id = po.id
-                WHERE p.reference_type = 'purchase_order' 
-                AND po.supplier_id = :supplier_id
-                ORDER BY p.created_at DESC";
+    public function getSupplierById(int $id): ?object {
+        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id AND company_id = :cid LIMIT 1");
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        return $this->db->single();
+    }
+
+    public function createSupplier(array $data): bool {
+        $sql = "INSERT INTO {$this->table} (company_id, name, email, phone, address, company, balance, created_at) 
+                VALUES (:cid, :name, :email, :phone, :address, :company, :balance, NOW())";
+        
+        $this->db->query($sql);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        $this->db->bind(':name', $data['name']);
+        $this->db->bind(':email', $data['email']);
+        $this->db->bind(':phone', $data['phone']);
+        $this->db->bind(':address', $data['address']);
+        $this->db->bind(':company', $data['company']);
+        $this->db->bind(':balance', $data['balance'] ?? 0);
+        
+        if($this->db->execute()){
+            ActivityLog::logAction('CREATE', 'Suppliers', $this->db->lastInsertId(), "إضافة مورد جديد: {$data['name']}");
+            return true;
+        }
+        return false;
+    }
+
+    public function updateSupplier(int $id, array $data): bool {
+        $sql = "UPDATE {$this->table} 
+                SET name = :name, email = :email, phone = :phone, address = :address, company = :company, balance = :balance 
+                WHERE id = :id AND company_id = :cid";
                 
         $this->db->query($sql);
-        $this->db->bind(':supplier_id', $supplierId, PDO::PARAM_INT);
-        return $this->db->resultSet();
+        $this->db->bind(':name', $data['name']);
+        $this->db->bind(':email', $data['email']);
+        $this->db->bind(':phone', $data['phone']);
+        $this->db->bind(':address', $data['address']);
+        $this->db->bind(':company', $data['company']);
+        $this->db->bind(':balance', $data['balance']);
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        
+        return $this->db->execute();
     }
 
-    /**
-     * جلب إحصائيات مالية لمورد محدد (إجمالي مشتريات، إجمالي مدفوع، متبقي)
-     * 
-     * @param int $supplierId
-     * @return array
-     */
-    public function getSupplierStats(int $supplierId): array {
-        // إجمالي المشتريات (أوامر الشراء المكتملة أو المعتمدة)
-        $this->db->query("SELECT SUM(total_amount) as total_po FROM purchase_orders WHERE supplier_id = :sid AND status NOT IN ('cancelled', 'rejected')");
-        $this->db->bind(':sid', $supplierId, PDO::PARAM_INT);
-        $poResult = $this->db->single();
-        $totalPayables = $poResult ? (float)$poResult->total_po : 0.0;
-
-        // إجمالي المدفوع
-        $payments = $this->getPayments($supplierId);
-        $totalPaid = 0.0;
-        foreach ($payments as $pay) {
-            $totalPaid += (float)$pay->amount;
-        }
-
-        // الحصول على الرصيد المسجل في جدول المورد نفسه
-        $supplier = $this->findById($supplierId);
-        $outstanding = $supplier ? (float)$supplier->balance : 0.0;
-
-        return [
-            'totalPayables' => $totalPayables,
-            'totalPaid'     => $totalPaid,
-            'outstanding'   => $outstanding
-        ];
+    public function deleteSupplier(int $id): bool {
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
+        $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        return $this->db->execute();
     }
 }

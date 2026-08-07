@@ -12,23 +12,36 @@ class ProductBatchController extends Controller {
     }
 
     public function index(string $id = ''): void {
-        if (empty($id) || !is_numeric($id)) $this->redirect('product/index');
-        $productId = (int)$id;
-        
-        $product = $this->productModel->findById($productId);
-        if (!$product) $this->redirect('product/index');
-
-        $batches = $this->batchModel->getBatchesByProduct($productId);
-
         $data = [
             'title' => 'إدارة التشغيلات والسيريال',
-            'product' => $product,
-            'batches' => $batches,
             'breadcrumb' => [
                 ['label' => 'المخزون', 'url' => 'product/index'],
-                ['label' => 'السيريال نمبر', 'url' => '#']
+                ['label' => 'السيريال والتشغيلات', 'url' => '#']
             ]
         ];
+
+        if (!empty($id) && is_numeric($id)) {
+            // عرض تشغيلات منتج محدد
+            $productId = (int)$id;
+            $product = $this->productModel->findById($productId);
+            if (!$product) $this->redirect('product/index');
+
+            $batches = $this->batchModel->getBatchesByProduct($productId);
+            $data['product'] = $product;
+            $data['batches'] = $batches;
+        } else {
+            // العرض الشامل لكل التشغيلات من القائمة الجانبية
+            $batches = $this->batchModel->getAllBatches();
+            
+            $db = Database::getInstance();
+            $db->query("SELECT id, name FROM products WHERE company_id = :cid AND track_batches = 1 ORDER BY name ASC");
+            $db->bind(':cid', Session::get('company_id'));
+            $products = $db->resultSet();
+            
+            $data['product'] = null;
+            $data['batches'] = $batches;
+            $data['products'] = $products;
+        }
         
         ob_start();
         $this->view('products/batches', $data);
@@ -38,16 +51,24 @@ class ProductBatchController extends Controller {
 
     public function create(string $productId = ''): void {
         $this->requireAnyRole(['admin', 'manager', 'editor']);
-        if ($this->isPost() && !empty($productId) && is_numeric($productId)) {
+        if ($this->isPost()) {
+            // تحديد المنتج إما من الرابط أو من الـ Select
+            $pid = !empty($productId) ? (int)$productId : (int)($_POST['product_id'] ?? 0);
+            
+            if ($pid === 0) {
+                $this->setFlash('error', 'يجب تحديد المنتج لتسجيل التشغيلة.');
+                $this->redirect('productBatch/index');
+            }
+
             $serialNumber = trim($_POST['serial_number'] ?? '');
             
             if (!empty($serialNumber) && !$this->batchModel->isSerialNumberUnique($serialNumber)) {
                 $this->setFlash('error', 'خطأ: السيريال نمبر مسجل مسبقاً لقطعة أخرى.');
-                $this->redirect('productBatch/index/' . $productId);
+                $this->redirect('productBatch/index/' . ($productId ? $productId : ''));
             }
 
             $data = [
-                'product_id' => (int)$productId,
+                'product_id' => $pid,
                 'lot_number' => trim($_POST['lot_number'] ?? ''),
                 'serial_number' => $serialNumber,
                 'production_date' => !empty($_POST['production_date']) ? $_POST['production_date'] : null,
@@ -62,6 +83,6 @@ class ProductBatchController extends Controller {
                 $this->setFlash('error', 'حدث خطأ أثناء الإضافة.');
             }
         }
-        $this->redirect('productBatch/index/' . $productId);
+        $this->redirect('productBatch/index/' . ($productId ? $productId : ''));
     }
 }

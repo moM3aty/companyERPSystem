@@ -1,9 +1,9 @@
 <?php
 // المسار: app/views/purchase/edit.php
-$order = $data['order'];
-$items = $data['items'];
-$suppliers = $data['suppliers'];
-$products = $data['products'];
+$order =$order ?? ($data['order'] ?? null);
+$items =$items ?? ($data['items'] ?? null);
+$suppliers = $suppliers ?? ($data['suppliers'] ?? null);
+$products = $products ?? ($data['products'] ?? null);
 ?>
 
 <div class="card" style="max-width: 1000px; margin: 0 auto;">

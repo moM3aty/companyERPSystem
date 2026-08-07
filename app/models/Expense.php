@@ -13,31 +13,37 @@ class Expense extends Model {
                 FROM {$this->table} e 
                 LEFT JOIN expense_categories c ON e.category_id = c.id 
                 LEFT JOIN users u ON e.created_by = u.id 
+                WHERE e.company_id = :cid
                 ORDER BY e.expense_date DESC, e.created_at DESC";
         $this->db->query($sql);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->resultSet();
     }
     
     public function getTotalExpenses(): float {
-        $sql = "SELECT SUM(amount) as total FROM {$this->table}";
+        $sql = "SELECT SUM(amount) as total FROM {$this->table} WHERE company_id = :cid";
         $this->db->query($sql);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         $result = $this->db->single();
         return $result ? (float)$result->total : 0.0;
     }
     
     public function getCategories(): array {
-        $this->db->query("SELECT * FROM expense_categories ORDER BY name ASC");
+        $this->db->query("SELECT * FROM expense_categories WHERE company_id = :cid OR company_id IS NULL ORDER BY name ASC");
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->resultSet();
     }
     
     public function createExpense(array $data): bool {
         try {
             $this->db->beginTransaction();
+            $companyId = Session::get('company_id');
 
-            $sql = "INSERT INTO {$this->table} (category_id, amount, expense_date, reference_no, notes, created_by, created_at) 
-                    VALUES (:category_id, :amount, :expense_date, :reference_no, :notes, :created_by, NOW())";
+            $sql = "INSERT INTO {$this->table} (company_id, category_id, amount, expense_date, reference_no, notes, created_by, created_at) 
+                    VALUES (:company_id, :category_id, :amount, :expense_date, :reference_no, :notes, :created_by, NOW())";
             
             $this->db->query($sql);
+            $this->db->bind(':company_id', $companyId, PDO::PARAM_INT);
             $this->db->bind(':category_id', $data['category_id'], PDO::PARAM_INT);
             $this->db->bind(':amount', $data['amount']);
             $this->db->bind(':expense_date', $data['expense_date']);
@@ -89,14 +95,15 @@ class Expense extends Model {
     }
     
     public function getExpenseById(int $id): ?object {
-        $sql = "SELECT * FROM {$this->table} WHERE id = :id";
+        $sql = "SELECT * FROM {$this->table} WHERE id = :id AND company_id = :cid";
         $this->db->query($sql);
         $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->single();
     }
     
     public function updateExpense(int $id, array $data): bool {
-        $sql = "UPDATE {$this->table} SET category_id = :category_id, amount = :amount, expense_date = :expense_date, reference_no = :reference_no, notes = :notes WHERE id = :id";
+        $sql = "UPDATE {$this->table} SET category_id = :category_id, amount = :amount, expense_date = :expense_date, reference_no = :reference_no, notes = :notes WHERE id = :id AND company_id = :cid";
         $this->db->query($sql);
         $this->db->bind(':category_id', $data['category_id'], PDO::PARAM_INT);
         $this->db->bind(':amount', $data['amount']);
@@ -104,12 +111,14 @@ class Expense extends Model {
         $this->db->bind(':reference_no', $data['reference_no']);
         $this->db->bind(':notes', $data['notes']);
         $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->execute();
     }
     
     public function deleteExpense(int $id): bool {
-        $this->db->query("DELETE FROM {$this->table} WHERE id = :id");
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
         $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->execute();
     }
 }

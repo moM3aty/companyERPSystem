@@ -1,5 +1,5 @@
 <?php
-// المسار: app/models/Customer.php
+// app/models/Customer.php
 
 class Customer extends Model {
     
@@ -8,78 +8,72 @@ class Customer extends Model {
         $this->table = 'customers';
     }
 
-    /**
-     * جلب جميع العملاء مع إحصائياتهم (عدد الفواتير وإجمالي المشتريات)
-     */
     public function getAllCustomers(): array {
-        $sql = "SELECT c.*, 
-                       COUNT(i.id) as invoice_count, 
-                       COALESCE(SUM(i.total_amount), 0) as total_purchases
-                FROM {$this->table} c
-                LEFT JOIN invoices i ON c.id = i.customer_id
-                GROUP BY c.id
-                ORDER BY c.created_at DESC";
-                
-        $this->db->query($sql);
+        // إذا كان المالك الشامل (null)، نعتبره يعمل على الشركة رقم 1 افتراضياً
+        $cid = Session::get('company_id') ?: 1; 
+        
+        $this->db->query("SELECT * FROM {$this->table} WHERE company_id = :cid ORDER BY id DESC");
+        $this->db->bind(':cid', $cid, PDO::PARAM_INT);
         return $this->db->resultSet();
     }
 
-    /**
-     * جلب بيانات عميل واحد بالمعرف الخاص به
-     */
     public function getCustomerById(int $id): ?object {
-        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id LIMIT 1");
+        $cid = Session::get('company_id') ?: 1;
+        
+        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id AND company_id = :cid LIMIT 1");
         $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', $cid, PDO::PARAM_INT);
         return $this->db->single();
     }
 
-    /**
-     * إضافة عميل جديد
-     */
     public function createCustomer(array $data): bool {
-        $sql = "INSERT INTO {$this->table} (name, phone, email, address, type, balance, created_at) 
-                VALUES (:name, :phone, :email, :address, :type, :balance, NOW())";
+        $cid = Session::get('company_id') ?: 1;
+        
+        $sql = "INSERT INTO {$this->table} (company_id, name, email, phone, address, company, balance, created_at) 
+                VALUES (:cid, :name, :email, :phone, :address, :company, :balance, NOW())";
         
         $this->db->query($sql);
+        $this->db->bind(':cid', $cid, PDO::PARAM_INT);
         $this->db->bind(':name', $data['name']);
-        $this->db->bind(':phone', $data['phone']);
         $this->db->bind(':email', $data['email']);
+        $this->db->bind(':phone', $data['phone']);
         $this->db->bind(':address', $data['address']);
-        $this->db->bind(':type', $data['type']);
-        $this->db->bind(':balance', $data['balance']);
+        $this->db->bind(':company', $data['company']);
+        $this->db->bind(':balance', $data['balance'] ?? 0);
         
-        return $this->db->execute();
+        if($this->db->execute()){
+            ActivityLog::logAction('CREATE', 'Customers', $this->db->lastInsertId(), "إضافة عميل جديد: {$data['name']}");
+            return true;
+        }
+        return false;
     }
 
-    /**
-     * تحديث بيانات العميل
-     */
     public function updateCustomer(int $id, array $data): bool {
+        $cid = Session::get('company_id') ?: 1;
+        
         $sql = "UPDATE {$this->table} 
-                SET name = :name, 
-                    phone = :phone, 
-                    email = :email, 
-                    address = :address, 
-                    type = :type 
-                WHERE id = :id";
+                SET name = :name, email = :email, phone = :phone, address = :address, company = :company, balance = :balance 
+                WHERE id = :id AND company_id = :cid";
                 
         $this->db->query($sql);
         $this->db->bind(':name', $data['name']);
-        $this->db->bind(':phone', $data['phone']);
         $this->db->bind(':email', $data['email']);
+        $this->db->bind(':phone', $data['phone']);
         $this->db->bind(':address', $data['address']);
-        $this->db->bind(':type', $data['type']);
+        $this->db->bind(':company', $data['company']);
+        $this->db->bind(':balance', $data['balance']);
         $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', $cid, PDO::PARAM_INT);
         
         return $this->db->execute();
     }
 
-    /**
-     * حذف العميل
-     */
     public function deleteCustomer(int $id): bool {
-        $this->db->query("DELETE FROM {$this->table} WHERE id = :id");
+        $cid = Session::get('company_id') ?: 1;
+        
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
         $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', $cid, PDO::PARAM_INT);
         return $this->db->execute();
     }
 }

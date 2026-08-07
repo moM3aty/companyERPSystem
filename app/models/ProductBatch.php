@@ -23,6 +23,20 @@ class ProductBatch extends Model {
     }
 
     /**
+     * جلب جميع التشغيلات والسيريالات لكل منتجات الشركة (للعرض الشامل)
+     */
+    public function getAllBatches(): array {
+        $sql = "SELECT pb.*, p.name as product_name, p.sku 
+                FROM {$this->table} pb 
+                JOIN products p ON pb.product_id = p.id 
+                WHERE p.company_id = :cid
+                ORDER BY pb.expiry_date ASC, pb.created_at DESC";
+        $this->db->query($sql);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        return $this->db->resultSet();
+    }
+
+    /**
      * التحقق من توفر سيريال نمبر (يجب أن يكون فريداً)
      */
     public function isSerialNumberUnique(string $serialNumber): bool {

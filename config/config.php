@@ -1,5 +1,5 @@
 <?php
-//config/config.php
+// config/config.php
 // ============================
 // إعدادات قاعدة البيانات
 // ============================
@@ -16,7 +16,14 @@ define('APP_ENV', 'development');
 if (!defined('APP_ROOT')) {
     define('APP_ROOT', dirname(__DIR__));
 }
-define('URLROOT', 'http://localhost/companyErpSystem/public');
+
+// 🟢 الإصلاح السحري: الاعتماد على السيرفر لجلب المسار الصحيح بدلاً من كتابته يدوياً لتجنب أخطاء الحروف (Case Sensitivity) 🟢
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+$serverName = $_SERVER['SERVER_NAME']; // عادة localhost
+$folderName = basename(dirname(__DIR__)); // يجلب اسم المجلد الحقيقي بمسماه الصحيح (companyERPSystem)
+
+// تحديد الرابط الأساسي بطريقة ديناميكية
+define('URLROOT', $protocol . $serverName . '/' . $folderName . '/public');
 define('APP_VERSION', '2.0.0');
 
 // ============================

@@ -13,8 +13,10 @@ class Sale extends Model {
                 FROM {$this->table} i 
                 LEFT JOIN customers c ON i.customer_id = c.id 
                 LEFT JOIN users u ON i.sales_rep_id = u.id
+                WHERE i.company_id = :cid
                 ORDER BY i.created_at DESC";
         $this->db->query($sql);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->resultSet();
     }
 
@@ -26,11 +28,13 @@ class Sale extends Model {
             $this->db->beginTransaction();
             $invoiceNumber = 'INV-' . date('Ymd') . '-' . str_pad((string)random_int(100, 999), 3, '0', STR_PAD_LEFT);
             $userId = Session::getUserId();
+            $companyId = Session::get('company_id');
 
             // 1. إدراج الفاتورة
-            $sqlInvoice = "INSERT INTO invoices (invoice_number, customer_id, customer_name, total_amount, sales_rep_id, created_at) 
-                           VALUES (:invoice_number, :customer_id, :customer_name, :total_amount, :sales_rep_id, NOW())";
+            $sqlInvoice = "INSERT INTO invoices (company_id, invoice_number, customer_id, customer_name, total_amount, sales_rep_id, created_at) 
+                           VALUES (:company_id, :invoice_number, :customer_id, :customer_name, :total_amount, :sales_rep_id, NOW())";
             $this->db->query($sqlInvoice);
+            $this->db->bind(':company_id', $companyId, PDO::PARAM_INT);
             $this->db->bind(':invoice_number', $invoiceNumber);
             $this->db->bind(':customer_id', $data['customer_id'] ?? null, PDO::PARAM_INT);
             $this->db->bind(':customer_name', $data['customer_name']);
@@ -74,9 +78,10 @@ class Sale extends Model {
 
             // 3. تحديث رصيد العميل
             if (!empty($data['customer_id'])) {
-                $this->db->query("UPDATE customers SET balance = balance + :amt WHERE id = :cid");
+                $this->db->query("UPDATE customers SET balance = balance + :amt WHERE id = :cid AND company_id = :company_id");
                 $this->db->bind(':amt', $data['total_amount']);
                 $this->db->bind(':cid', $data['customer_id'], PDO::PARAM_INT);
+                $this->db->bind(':company_id', $companyId, PDO::PARAM_INT);
                 $this->db->execute();
             }
 
@@ -122,9 +127,10 @@ class Sale extends Model {
                 FROM invoices i 
                 LEFT JOIN customers c ON i.customer_id = c.id 
                 LEFT JOIN users u ON i.sales_rep_id = u.id
-                WHERE i.id = :id LIMIT 1";
+                WHERE i.id = :id AND i.company_id = :cid LIMIT 1";
         $this->db->query($sql);
         $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->single();
     }
 
@@ -148,10 +154,12 @@ class Sale extends Model {
                        SUM(i.total_amount) * :rate as estimated_commission
                 FROM invoices i
                 JOIN users u ON i.sales_rep_id = u.id
+                WHERE i.company_id = :cid
                 GROUP BY i.sales_rep_id, u.name
                 ORDER BY total_sales DESC";
         $this->db->query($sql);
         $this->db->bind(':rate', $commissionRate);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->resultSet();
     }
 }

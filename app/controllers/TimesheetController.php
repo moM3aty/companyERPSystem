@@ -11,6 +11,25 @@ class TimesheetController extends Controller {
         $this->projectModel = $this->model('Project');
     }
 
+    // إضافة الدالة الافتراضية للرابط الرئيسي
+    public function index(): void {
+        $timesheets = $this->timeModel->getAllTimesheets();
+        
+        $data = [
+            'title' => 'السجل الشامل لأوقات العمل',
+            'timesheets' => $timesheets,
+            'breadcrumb' => [
+                ['label' => 'المشاريع', 'url' => 'project/index'],
+                ['label' => 'سجل الأوقات', 'url' => 'timesheet/index']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('timesheet/index', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+
     public function project(string $id = ''): void {
         if (empty($id) || !is_numeric($id)) $this->redirect('project/index');
         $projectId = (int)$id;

@@ -1,5 +1,5 @@
 <?php
-// المسار: app/models/User.php
+// app/models/User.php
 
 class User extends Model {
     
@@ -8,85 +8,43 @@ class User extends Model {
         $this->table = 'users';
     }
 
-    public function getAllUsers(): array {
-        $sql = "SELECT id, name, email, role, phone, created_at 
-                FROM {$this->table} 
-                ORDER BY created_at DESC";
-        $this->db->query($sql);
-        return $this->db->resultSet();
-    }
-
-    public function getUserById(int $id): ?object {
-        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id LIMIT 1");
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
-        return $this->db->single();
-    }
-
-    public function emailExists(string $email, ?int $excludeId = null): bool {
-        if (empty($email)) return false;
-        
-        $sql = "SELECT id FROM {$this->table} WHERE email = :email";
-        if ($excludeId !== null) {
-            $sql .= " AND id != :exclude_id";
-        }
-        
+    public function login(string $email, string $password): ?object {
+        // جلب المستخدم مع اسم الشركة المرتبطة به (Multi-Tenancy)
+        $sql = "SELECT u.*, c.name as company_name, c.status as company_status 
+                FROM {$this->table} u 
+                LEFT JOIN companies c ON u.company_id = c.id 
+                WHERE u.email = :email";
         $this->db->query($sql);
         $this->db->bind(':email', $email);
-        
-        if ($excludeId !== null) {
-            $this->db->bind(':exclude_id', $excludeId, PDO::PARAM_INT);
+        $user = $this->db->single();
+
+        if ($user) {
+            // التحقق من أن الشركة غير موقوفة (Suspended)
+            if ($user->role !== 'super_admin' && $user->company_status === 'suspended') {
+                return null; // الشركة موقوفة، لا يمكن الدخول
+            }
+
+            if (password_verify($password, $user->password)) {
+                return $user;
+            }
         }
-        
-        $this->db->execute();
-        return $this->db->rowCount() > 0;
+        return null;
     }
 
-    public function createUser(array $data): bool {
-        // تشفير كلمة المرور بشكل آمن جداً
-        $hashedPassword = password_hash($data['password'], PASSWORD_BCRYPT);
-        
-        $sql = "INSERT INTO {$this->table} (name, email, password, role, phone, created_at) 
-                VALUES (:name, :email, :password, :role, :phone, NOW())";
-        
-        $this->db->query($sql);
-        $this->db->bind(':name', $data['name']);
-        $this->db->bind(':email', $data['email']);
-        $this->db->bind(':password', $hashedPassword);
-        $this->db->bind(':role', $data['role']);
-        $this->db->bind(':phone', $data['phone'] ?? null);
-        
-        return $this->db->execute();
-    }
-
-    public function updateUser(int $id, array $data): bool {
-        $sql = "UPDATE {$this->table} 
-                SET name = :name, email = :email, role = :role, phone = :phone";
-        
-        // إذا تم إدخال كلمة مرور جديدة، نقوم بتحديثها
-        if (!empty($data['password'])) {
-            $sql .= ", password = :password";
+    // جلب موظفي الشركة فقط، أو كل المستخدمين في حالة كان المالك
+    public function getUsersByCompany(?int $companyId = null): array {
+        if ($companyId) {
+            $this->db->query("SELECT u.id, u.name, u.email, u.role, c.name as company_name FROM {$this->table} u LEFT JOIN companies c ON u.company_id = c.id WHERE u.company_id = :cid ORDER BY u.name ASC");
+            $this->db->bind(':cid', $companyId, PDO::PARAM_INT);
+        } else {
+            $this->db->query("SELECT u.id, u.name, u.email, u.role, c.name as company_name FROM {$this->table} u LEFT JOIN companies c ON u.company_id = c.id ORDER BY c.name ASC, u.name ASC");
         }
-        
-        $sql .= " WHERE id = :id";
-        
-        $this->db->query($sql);
-        $this->db->bind(':name', $data['name']);
-        $this->db->bind(':email', $data['email']);
-        $this->db->bind(':role', $data['role']);
-        $this->db->bind(':phone', $data['phone'] ?? null);
+        return $this->db->resultSet();
+    }
+    
+    public function getUserById(int $id): ?object {
+        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id");
         $this->db->bind(':id', $id, PDO::PARAM_INT);
-        
-        if (!empty($data['password'])) {
-            $hashedPassword = password_hash($data['password'], PASSWORD_BCRYPT);
-            $this->db->bind(':password', $hashedPassword);
-        }
-        
-        return $this->db->execute();
-    }
-
-    public function delete(int $id): bool {
-        $this->db->query("DELETE FROM {$this->table} WHERE id = :id");
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
-        return $this->db->execute();
+        return $this->db->single();
     }
 }

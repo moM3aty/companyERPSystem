@@ -145,9 +145,11 @@ class Accounting extends Model {
             SELECT je.*, u.name as created_by_name
             FROM journal_entries je
             LEFT JOIN users u ON je.created_by = u.id
+            WHERE je.company_id = :cid
             ORDER BY je.id DESC
             LIMIT :lim
         ');
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         $this->db->bind(':lim', $limit, PDO::PARAM_INT);
         return $this->db->resultSet();
     }
@@ -157,9 +159,10 @@ class Accounting extends Model {
             SELECT je.*, u.name as created_by_name
             FROM journal_entries je
             LEFT JOIN users u ON je.created_by = u.id
-            WHERE je.id = :id
+            WHERE je.id = :id AND je.company_id = :cid
         ');
         $this->db->bind(':id', $id, PDO::PARAM_INT);
+        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->single();
     }
 
@@ -189,6 +192,8 @@ class Accounting extends Model {
         
         $totalDebit = 0;
         $totalCredit = 0;
+        $companyId = Session::get('company_id');
+
         foreach ($lines as $line) {
             $totalDebit += (float)($line['debit'] ?? 0);
             $totalCredit += (float)($line['credit'] ?? 0);
@@ -204,9 +209,10 @@ class Accounting extends Model {
             
             $this->db->query('
                 INSERT INTO journal_entries 
-                (entry_number, entry_date, description, reference_type, reference_id, created_by)
-                VALUES (:num, :date, :desc, :ref_type, :ref_id, :user)
+                (company_id, entry_number, entry_date, description, reference_type, reference_id, created_by)
+                VALUES (:company_id, :num, :date, :desc, :ref_type, :ref_id, :user)
             ');
+            $this->db->bind(':company_id', $companyId, PDO::PARAM_INT);
             $this->db->bind(':num', $entryNumber);
             $this->db->bind(':date', $entryDate);
             $this->db->bind(':desc', $description);
@@ -231,7 +237,7 @@ class Accounting extends Model {
                 $this->db->execute();
 
                 // تحديث أرصدة شجرة الحسابات
-                $this->updateAccountBalance($line['account_id'], (float)($line['debit'] ?? 0), (float)($line['credit'] ?? 0));
+                $this->updateAccountBalance($line['account_id'], (float)($line['debit'] ?? 0), (float)($line['credit'] ?? 0), $companyId);
             }
             
             $this->db->commit();
@@ -243,18 +249,20 @@ class Accounting extends Model {
         }
     }
 
-    private function updateAccountBalance(int $accountId, float $debit, float $credit): void {
-        $this->db->query("SELECT type FROM chart_of_accounts WHERE id = :id");
+    private function updateAccountBalance(int $accountId, float $debit, float $credit, int $companyId): void {
+        $this->db->query("SELECT type FROM chart_of_accounts WHERE id = :id AND company_id = :cid");
         $this->db->bind(':id', $accountId, PDO::PARAM_INT);
+        $this->db->bind(':cid', $companyId, PDO::PARAM_INT);
         $account = $this->db->single();
         
         if (!$account) return;
 
         $amount = in_array($account->type, ['asset', 'expense']) ? ($debit - $credit) : ($credit - $debit);
 
-        $this->db->query("UPDATE chart_of_accounts SET balance = balance + :amount WHERE id = :id");
+        $this->db->query("UPDATE chart_of_accounts SET balance = balance + :amount WHERE id = :id AND company_id = :cid");
         $this->db->bind(':amount', $amount);
         $this->db->bind(':id', $accountId, PDO::PARAM_INT);
+        $this->db->bind(':cid', $companyId, PDO::PARAM_INT);
         $this->db->execute();
     }
 
@@ -294,18 +302,22 @@ class Accounting extends Model {
     // ==========================================
 
     public function getSetting(string $key): ?string {
-        $this->db->query('SELECT setting_value FROM settings WHERE setting_key = :key LIMIT 1');
+        $companyId = Session::get('company_id') ?: 1; // الاعتماد على 1 إذا كان المالك الشامل (null)
+        $this->db->query('SELECT setting_value FROM settings WHERE setting_key = :key AND (company_id = :cid OR company_id IS NULL) LIMIT 1');
         $this->db->bind(':key', $key);
+        $this->db->bind(':cid', $companyId, PDO::PARAM_INT);
         $row = $this->db->single();
         return $row ? $row->setting_value : null;
     }
 
     public function updateSetting(string $key, string $value): bool {
+        $companyId = Session::get('company_id') ?: 1; // الاعتماد على 1 إذا كان المالك الشامل (null)
         $this->db->query('
-            INSERT INTO settings (setting_key, setting_value) 
-            VALUES (:key, :val) 
+            INSERT INTO settings (company_id, setting_key, setting_value) 
+            VALUES (:cid, :key, :val) 
             ON DUPLICATE KEY UPDATE setting_value = :val2, updated_at = NOW()
         ');
+        $this->db->bind(':cid', $companyId, PDO::PARAM_INT);
         $this->db->bind(':key', $key);
         $this->db->bind(':val', $value);
         $this->db->bind(':val2', $value);
@@ -313,7 +325,9 @@ class Accounting extends Model {
     }
 
     public function getAllSettings(): array {
-        $this->db->query('SELECT * FROM settings ORDER BY setting_key ASC');
+        $companyId = Session::get('company_id') ?: 1; // الاعتماد على 1 إذا كان المالك الشامل (null)
+        $this->db->query('SELECT * FROM settings WHERE company_id = :cid OR company_id IS NULL ORDER BY setting_key ASC');
+        $this->db->bind(':cid', $companyId, PDO::PARAM_INT);
         return $this->db->resultSet();
     }
 }

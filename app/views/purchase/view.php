@@ -1,7 +1,7 @@
 <?php
 // المسار: app/views/purchase/view.php
-$order = $data['order'];
-$items = $data['items'];
+$order =$order ?? ($data['order'] ?? null);
+$items = $items ?? ($data['items'] ?? null);
 ?>
 
 <div class="card" style="max-width: 900px; margin: 0 auto;">
