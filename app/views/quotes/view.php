@@ -1,8 +1,28 @@
 <?php
-// المسار: app/views/quotes/view.php
+// app/views/quotes/view.php
 $quote = $quote ?? ($data['quote'] ?? null);
 $items = $items ?? ($data['items'] ?? []);
-$taxRate = 15; // الضريبة
+
+// --- 🟢 جلب إعدادات الشركة ديناميكياً من قاعدة البيانات 🟢 ---
+$db = Database::getInstance();
+$cid = Session::get('company_id') ?: 1;
+$db->query("SELECT setting_key, setting_value FROM settings WHERE company_id = :cid OR company_id IS NULL");
+$db->bind(':cid', $cid);
+$sysSettings = $db->resultSet();
+
+$companyName = 'اسم المؤسسة غير محدد';
+$companyPhone = 'غير مسجل';
+$companyEmail = 'غير مسجل';
+$taxRate = 15; // الضريبة الافتراضية
+
+foreach ($sysSettings as $s) {
+    if ($s->setting_key === 'company_name' && !empty($s->setting_value)) $companyName = $s->setting_value;
+    if ($s->setting_key === 'company_phone' && !empty($s->setting_value)) $companyPhone = $s->setting_value;
+    if ($s->setting_key === 'company_email' && !empty($s->setting_value)) $companyEmail = $s->setting_value;
+    if ($s->setting_key === 'tax_rate' && is_numeric($s->setting_value)) $taxRate = (float)$s->setting_value;
+}
+// -------------------------------------------------------------
+
 $taxAmount = $quote->total_amount * ($taxRate / 100);
 $grandTotal = $quote->total_amount + $taxAmount;
 ?>
@@ -47,12 +67,13 @@ $grandTotal = $quote->total_amount + $taxAmount;
                 <h1 style="font-size: 32px; font-weight: 900; color: var(--primary-dark); margin-bottom: 5px;">عرض سعر</h1>
                 <div class="text-muted font-monospace fs-5">QUOTATION</div>
             </div>
+            
+            <!-- 🟢 معلومات الشركة الديناميكية 🟢 -->
             <div class="text-left" style="direction: ltr; text-align: left;">
-                <h2 style="font-size: 24px; font-weight: 900; color: var(--text-dark); margin-bottom: 5px;">ERP Pro Inc.</h2>
+                <h2 style="font-size: 24px; font-weight: 900; color: var(--text-dark); margin-bottom: 5px;"><?php echo htmlspecialchars($companyName); ?></h2>
                 <div class="text-muted fs-6">
-                    الرياض، المملكة العربية السعودية<br>
-                    هاتف: +966 500 000 000<br>
-                    info@erppro.com
+                    <i class="fas fa-phone fa-fw"></i> <span style="direction: ltr; display: inline-block;"><?php echo htmlspecialchars($companyPhone); ?></span><br>
+                    <i class="fas fa-envelope fa-fw"></i> <?php echo htmlspecialchars($companyEmail); ?>
                 </div>
             </div>
         </div>
@@ -145,7 +166,7 @@ $grandTotal = $quote->total_amount + $taxAmount;
         </div>
         
         <div class="text-center mt-5 pt-4 text-muted" style="border-top: 1px solid var(--border-color); font-size: 12px;">
-            <p>نشكركم على ثقتكم في التعامل معنا. لأي استفسارات، يرجى التواصل على info@erppro.com</p>
+            <p>نشكركم على ثقتكم في التعامل معنا. لأي استفسارات، يرجى التواصل على <?php echo htmlspecialchars($companyEmail); ?></p>
         </div>
 
     </div>

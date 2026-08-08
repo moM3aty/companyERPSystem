@@ -15,17 +15,13 @@ class PosController extends Controller {
     }
 
     public function index(): void {
-        // جلب المنتجات المتاحة في المخزن فقط
-        $allProducts = $this->productModel->getAllProducts();
-        $products = [];
+        // جلب جميع المنتجات (بدون تصفية الكمية الصفرية لتتمكن من البيع في كل الحالات)
+        $products = $this->productModel->getAllProducts();
         $categories = [];
         
-        foreach ($allProducts as $p) {
-            if ($p->quantity > 0) {
-                $products[] = $p;
-                if (!empty($p->category_name) && !in_array($p->category_name, $categories)) {
-                    $categories[] = $p->category_name;
-                }
+        foreach ($products as $p) {
+            if (!empty($p->category_name) && !in_array($p->category_name, $categories)) {
+                $categories[] = $p->category_name;
             }
         }
 
@@ -95,12 +91,15 @@ class PosController extends Controller {
                 'total_amount' => $totalAmount
             ];
 
-            // استدعاء موديل المبيعات الذي يخصم المخزن وينشئ القيد المحاسبي آلياً
-            if ($this->saleModel->createInvoice($invoiceData, $items)) {
+            // 🟢 التعديل: الحصول على رقم الفاتورة للتوجه لشاشة الطباعة
+            $invoiceId = $this->saleModel->createInvoice($invoiceData, $items);
+            
+            if ($invoiceId) {
                 $this->setFlash('success', 'تمت عملية البيع بنجاح.');
-                $this->redirect('pos/index'); // يمكنك لاحقاً توجيه الكاشير لطباعة الفاتورة
+                // التوجيه إلى الفاتورة لطباعتها
+                $this->redirect('sale/show/' . $invoiceId);
             } else {
-                $this->setFlash('error', 'فشل إتمام العملية. قد لا يتوفر مخزون كافٍ.');
+                $this->setFlash('error', 'فشل إتمام العملية.');
                 $this->redirect('pos/index');
             }
         } else {

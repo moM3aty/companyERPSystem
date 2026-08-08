@@ -106,11 +106,6 @@ $productsJson = json_encode($products);
         font-weight: 900;
         font-size: 16px;
     }
-    .pos-item-stock {
-        font-size: 11px;
-        color: var(--text-muted);
-        margin-top: 5px;
-    }
 
     /* Cart Area */
     .pos-cart-area {
@@ -234,12 +229,14 @@ $productsJson = json_encode($products);
             </select>
         </div>
 
-        <div class="pos-cart-items" id="cartItems">
-            <!-- سيتم حقن عناصر السلة هنا -->
+        <div class="pos-cart-items">
+            <!-- رسالة السلة الفارغة أصبحت معزولة -->
             <div class="text-center text-muted" style="padding: 40px 0; opacity: 0.5;" id="emptyCartMsg">
                 <i class="fas fa-basket-shopping fa-3x mb-3"></i>
                 <p>السلة فارغة. ابدأ بإضافة المنتجات.</p>
             </div>
+            <!-- حاوية جديدة مخصصة للمنتجات فقط -->
+            <div id="cartItemsList"></div>
         </div>
 
         <div class="pos-cart-footer">
@@ -250,9 +247,9 @@ $productsJson = json_encode($products);
             
             <form action="<?php echo URLROOT; ?>/pos/checkout" method="POST" id="checkoutForm">
                 <input type="hidden" name="customer_id" id="formCustomerId" value="">
-                <div id="formHiddenInputs"></div> <!-- حقول المنتجات المخفية -->
+                <div id="formHiddenInputs"></div>
                 
-                <button type="button" class="btn btn-success w-100" style="padding: 15px; font-size: 16px;" onclick="submitCheckout()">
+                <button type="button" class="btn btn-success w-100" style="padding: 15px; font-size: 16px;" onclick="submitCheckout()" id="payBtn">
                     <i class="fas fa-check-circle"></i> إتمام البيع (الدفع)
                 </button>
             </form>
@@ -284,11 +281,11 @@ $productsJson = json_encode($products);
         filtered.forEach(p => {
             const priceFormatted = parseFloat(p.price).toFixed(2);
             grid.innerHTML += `
-                <div class="pos-item" onclick="addToCart(${p.id})">
+                <div class="pos-item" onclick="addToCart('${p.id}')">
                     <div class="pos-item-title">${p.name}</div>
                     <div>
                         <div class="pos-item-price">${priceFormatted}</div>
-                        <div class="pos-item-stock"><i class="fas fa-box"></i> متوفر: ${p.quantity}</div>
+                        <div class="pos-item-stock text-success" style="font-size:11px; margin-top:5px;"><i class="fas fa-check-circle"></i> متاح</div>
                     </div>
                 </div>
             `;
@@ -308,53 +305,48 @@ $productsJson = json_encode($products);
         filterProducts();
     }
 
-    // 3. إدارة السلة
+    // 3. إدارة السلة وتغيير الكميات
     function addToCart(productId) {
-        const product = productsData.find(p => p.id === productId);
+        const pid = productId.toString(); 
+        const product = productsData.find(p => p.id == productId);
         if(!product) return;
 
-        if(cart[productId]) {
-            if(cart[productId].qty < product.quantity) {
-                cart[productId].qty++;
-            } else {
-                alert('عفواً، لا يوجد مخزون كافٍ لهذا المنتج.');
-            }
+        if(cart[pid]) {
+            cart[pid].qty = parseInt(cart[pid].qty) + 1;
         } else {
-            cart[productId] = { ...product, qty: 1 };
+            cart[pid] = { ...product, qty: 1 };
         }
         updateCartUI();
     }
 
+    // 🔥 الحل: تحويل المتغيرات لنصوص والتأكد من العمليات الحسابية
     function changeQty(productId, delta) {
-        if(cart[productId]) {
-            const product = productsData.find(p => p.id === productId);
-            let newQty = cart[productId].qty + delta;
-            
-            if(newQty > product.quantity) {
-                alert('لقد تجاوزت الكمية المتاحة في المخزن.');
-                return;
-            }
+        const pid = productId.toString();
+        if(cart[pid]) {
+            let currentQty = parseInt(cart[pid].qty) || 0;
+            let d = parseInt(delta) || 0;
+            let newQty = currentQty + d;
             
             if(newQty <= 0) {
-                delete cart[productId];
+                delete cart[pid];
             } else {
-                cart[productId].qty = newQty;
+                cart[pid].qty = newQty;
             }
             updateCartUI();
         }
     }
 
-    function updateCartUI() {
-        const cartItemsDiv = document.getElementById('cartItems');
+     function updateCartUI() {
+        const cartItemsList = document.getElementById('cartItemsList');
         const emptyMsg = document.getElementById('emptyCartMsg');
         let total = 0;
         let count = 0;
         
-        cartItemsDiv.innerHTML = '';
+        // مسح قائمة المنتجات فقط وليس الرسالة
+        cartItemsList.innerHTML = '';
         const items = Object.values(cart);
 
         if(items.length === 0) {
-            cartItemsDiv.appendChild(emptyMsg);
             emptyMsg.style.display = 'block';
         } else {
             emptyMsg.style.display = 'none';
@@ -363,17 +355,17 @@ $productsJson = json_encode($products);
                 total += subtotal;
                 count += item.qty;
 
-                cartItemsDiv.innerHTML += `
+                cartItemsList.innerHTML += `
                     <div class="cart-item">
                         <div class="cart-item-info">
                             <div class="cart-item-title">${item.name}</div>
                             <div class="cart-item-price">${parseFloat(item.price).toFixed(2)} ر.س</div>
                         </div>
                         <div class="cart-item-controls">
-                            <button class="qty-btn" onclick="changeQty(${item.id}, -1)"><i class="fas fa-minus" style="font-size:10px;"></i></button>
+                            <button type="button" class="qty-btn" onclick="changeQty('${item.id}', -1)"><i class="fas fa-minus" style="font-size:10px;"></i></button>
                             <span class="qty-display">${item.qty}</span>
-                            <button class="qty-btn" onclick="changeQty(${item.id}, 1)"><i class="fas fa-plus" style="font-size:10px;"></i></button>
-                            <button class="qty-btn text-danger ms-2" onclick="changeQty(${item.id}, -999)" style="border-color:#fca5a5; background:#fef2f2;"><i class="fas fa-trash" style="font-size:12px;"></i></button>
+                            <button type="button" class="qty-btn" onclick="changeQty('${item.id}', 1)"><i class="fas fa-plus" style="font-size:10px;"></i></button>
+                            <button type="button" class="qty-btn text-danger ms-2" onclick="changeQty('${item.id}', -999)" style="border-color:#fca5a5; background:#fef2f2;"><i class="fas fa-trash" style="font-size:12px;"></i></button>
                         </div>
                     </div>
                 `;
@@ -392,10 +384,13 @@ $productsJson = json_encode($products);
             return;
         }
 
-        // إعداد العميل
+        // تعطيل الزر لمنع الدفع المزدوج
+        const payBtn = document.getElementById('payBtn');
+        payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري المعالجة...';
+        payBtn.disabled = true;
+
         document.getElementById('formCustomerId').value = document.getElementById('customerSelect').value;
 
-        // إعداد حقول المنتجات المخفية ليتم إرسالها للـ PHP
         const hiddenInputs = document.getElementById('formHiddenInputs');
         hiddenInputs.innerHTML = '';
         
@@ -407,10 +402,8 @@ $productsJson = json_encode($products);
             `;
         });
 
-        // إرسال النموذج
         document.getElementById('checkoutForm').submit();
     }
 
-    // تهيئة أولية
     window.onload = () => { renderProducts(); };
 </script>

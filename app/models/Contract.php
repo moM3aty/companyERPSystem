@@ -6,52 +6,113 @@ class Contract extends Model {
     public function __construct() {
         parent::__construct();
         $this->table = 'contracts';
+        
+        $this->autoUpgradeTable();
     }
 
-    public function getAllContractsDetails(): array {
-        $sql = "SELECT c.*, 
-                       CASE 
-                           WHEN c.party_type = 'customer' THEN cust.name 
-                           WHEN c.party_type = 'supplier' THEN sup.name 
-                       END as party_name
-                FROM {$this->table} c
-                LEFT JOIN customers cust ON c.party_id = cust.id AND c.party_type = 'customer'
-                LEFT JOIN suppliers sup ON c.party_id = sup.id AND c.party_type = 'supplier'
-                ORDER BY c.end_date ASC";
+    private function autoUpgradeTable() {
+        // 1. إنشاء الجدول بشكل مبدئي إذا لم يكن موجوداً
+        try {
+            $sql = "CREATE TABLE IF NOT EXISTS `contracts` (
+                `id` int(11) NOT NULL AUTO_INCREMENT,
+                PRIMARY KEY (`id`)
+            )";
+            $this->db->query($sql);
+            $this->db->execute();
+        } catch (Exception $e) {}
+
+        // 2. إضافة الأعمدة المفقودة تلقائياً (الحل السحري)
+        $columnsToAdd = [
+            'company_id'      => "INT DEFAULT 1",
+            'contract_number' => "VARCHAR(50) NOT NULL DEFAULT 'CTR-000'",
+            'title'           => "VARCHAR(255) NOT NULL DEFAULT 'بدون عنوان'",
+            'customer_name'   => "VARCHAR(255) DEFAULT NULL",
+            'start_date'      => "DATE DEFAULT NULL",
+            'end_date'        => "DATE DEFAULT NULL",
+            'value'           => "DECIMAL(15,2) DEFAULT 0.00",
+            'status'          => "VARCHAR(50) DEFAULT 'draft'",
+            'description'     => "TEXT DEFAULT NULL",
+            'created_by'      => "INT NOT NULL DEFAULT 0",
+            'created_at'      => "DATETIME DEFAULT CURRENT_TIMESTAMP"
+        ];
+
+        foreach ($columnsToAdd as $colName => $colDef) {
+            try {
+                $this->db->query("SHOW COLUMNS FROM `contracts` LIKE '{$colName}'");
+                if (empty($this->db->resultSet())) {
+                    $this->db->query("ALTER TABLE `contracts` ADD `{$colName}` {$colDef}");
+                    $this->db->execute();
+                }
+            } catch (Exception $e) {
+                // تجاهل بصمت حتى لا يتوقف النظام
+            }
+        }
+    }
+
+    public function getAllContracts(): array {
+        $sql = "SELECT c.*, u.name as creator_name 
+                FROM {$this->table} c 
+                LEFT JOIN users u ON c.created_by = u.id 
+                WHERE c.company_id = :cid 
+                ORDER BY c.id DESC";
         $this->db->query($sql);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
         return $this->db->resultSet();
     }
 
-    public function createContractDetails(array $data): bool {
-        $sql = "INSERT INTO {$this->table} (contract_number, title, party_type, party_id, start_date, end_date, value, status, description, created_at)
-                VALUES (:contract_number, :title, :party_type, :party_id, :start_date, :end_date, :value, :status, :description, NOW())";
-        
+    public function getContractById(int $id): ?object {
+        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id AND company_id = :cid LIMIT 1");
+        $this->db->bind(':id', $id);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
+        return $this->db->single();
+    }
+
+    public function createContract(array $data): bool {
+        $sql = "INSERT INTO {$this->table} 
+                (company_id, contract_number, title, customer_name, start_date, end_date, value, status, description, created_by) 
+                VALUES (:cid, :cnum, :title, :cname, :sdate, :edate, :value, :status, :desc, :user)";
+                
         $this->db->query($sql);
-        $this->db->bind(':contract_number', $data['contract_number']);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
+        $this->db->bind(':cnum', $data['contract_number']);
         $this->db->bind(':title', $data['title']);
-        $this->db->bind(':party_type', $data['party_type']);
-        $this->db->bind(':party_id', $data['party_id'], PDO::PARAM_INT);
-        $this->db->bind(':start_date', $data['start_date']);
-        $this->db->bind(':end_date', $data['end_date']);
-        $this->db->bind(':value', $data['value']);
-        $this->db->bind(':status', $data['status']);
-        $this->db->bind(':description', $data['description']);
+        $this->db->bind(':cname', $data['customer_name'] ?? null);
+        $this->db->bind(':sdate', !empty($data['start_date']) ? $data['start_date'] : null);
+        $this->db->bind(':edate', !empty($data['end_date']) ? $data['end_date'] : null);
+        $this->db->bind(':value', $data['value'] ?? 0);
+        $this->db->bind(':status', $data['status'] ?? 'draft');
+        $this->db->bind(':desc', $data['description'] ?? null);
+        $this->db->bind(':user', Session::getUserId());
         
-        if ($this->db->execute()) {
-            $contractId = $this->db->lastInsertId();
-            ActivityLog::logAction('CREATE', 'Contracts', $contractId, "تم تسجيل عقد جديد: {$data['title']}");
-            return true;
-        }
-        return false;
+        return $this->db->execute();
+    }
+
+    public function updateContract(int $id, array $data): bool {
+        $sql = "UPDATE {$this->table} 
+                SET contract_number = :cnum, title = :title, customer_name = :cname, 
+                    start_date = :sdate, end_date = :edate, value = :value, 
+                    status = :status, description = :desc 
+                WHERE id = :id AND company_id = :cid";
+                
+        $this->db->query($sql);
+        $this->db->bind(':cnum', $data['contract_number']);
+        $this->db->bind(':title', $data['title']);
+        $this->db->bind(':cname', $data['customer_name'] ?? null);
+        $this->db->bind(':sdate', !empty($data['start_date']) ? $data['start_date'] : null);
+        $this->db->bind(':edate', !empty($data['end_date']) ? $data['end_date'] : null);
+        $this->db->bind(':value', $data['value'] ?? 0);
+        $this->db->bind(':status', $data['status'] ?? 'draft');
+        $this->db->bind(':desc', $data['description'] ?? null);
+        $this->db->bind(':id', $id);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
+        
+        return $this->db->execute();
     }
 
     public function deleteContract(int $id): bool {
-        $this->db->query("DELETE FROM {$this->table} WHERE id = :id");
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
-        if ($this->db->execute()) {
-            ActivityLog::logAction('DELETE', 'Contracts', $id, "تم حذف العقد نهائياً");
-            return true;
-        }
-        return false;
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
+        $this->db->bind(':id', $id);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
+        return $this->db->execute();
     }
 }

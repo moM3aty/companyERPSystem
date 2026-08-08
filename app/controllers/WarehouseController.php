@@ -9,7 +9,7 @@ class WarehouseController extends Controller {
 
     public function index() {
         $warehouseModel = $this->model('Warehouse');
-        $warehouses = $warehouseModel->getAll();
+        $warehouses = $warehouseModel->getAllWarehouses();
         
         $data = [
             'title' => 'المستودعات',
@@ -21,7 +21,6 @@ class WarehouseController extends Controller {
             ]
         ];
         
-        // الإصلاح: استخدام Layout::render لعرض التصميم الشامل
         ob_start();
         $this->view('warehouse/index', $data);
         $content = ob_get_clean();
@@ -39,16 +38,29 @@ class WarehouseController extends Controller {
             ];
             
             $warehouseModel = $this->model('Warehouse');
-            if ($warehouseModel->create($data)) {
-                $this->setFlash('success', 'تم إضافة المستودع بنجاح');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء الإضافة');
+            try {
+                if ($warehouseModel->createWarehouse($data)) {
+                    $this->setFlash('success', 'تم إضافة المستودع بنجاح');
+                } else {
+                    $this->setFlash('error', 'حدث خطأ أثناء الإضافة');
+                }
+            } catch (PDOException $e) {
+                // التقاط خطأ تكرار الكود
+                if ($e->getCode() == 23000) {
+                    $this->setFlash('error', 'عفواً، كود المستودع مستخدم مسبقاً! يرجى اختيار كود فريد.');
+                } else {
+                    $this->setFlash('error', 'حدث خطأ غير متوقع في قاعدة البيانات.');
+                }
             }
             $this->redirect('warehouse/index');
         } else {
             $data = [
                 'title' => 'إضافة مستودع جديد',
-                'flash' => $this->getFlash()
+                'flash' => $this->getFlash(),
+                'breadcrumb' => [
+                    ['label' => 'المستودعات', 'url' => 'warehouse/index'],
+                    ['label' => 'إضافة', 'url' => '#']
+                ]
             ];
             
             ob_start();
@@ -58,7 +70,81 @@ class WarehouseController extends Controller {
         }
     }
 
-    // عرض طلبات نقل المخزون
+    public function edit(string $id = '') {
+        if (empty($id) || !is_numeric($id)) $this->redirect('warehouse/index');
+        
+        $warehouseModel = $this->model('Warehouse');
+        $warehouse = $warehouseModel->getWarehouseById((int)$id);
+        
+        if (!$warehouse) {
+            $this->setFlash('error', 'المستودع غير موجود.');
+            $this->redirect('warehouse/index');
+        }
+
+        if ($this->isPost()) {
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            $data = [
+                'name' => trim($_POST['name'] ?? ''),
+                'code' => trim($_POST['code'] ?? ''),
+                'address' => trim($_POST['address'] ?? ''),
+                'is_main' => isset($_POST['is_main']) ? 1 : 0,
+            ];
+            
+            if (empty($data['name']) || empty($data['code'])) {
+                $this->setFlash('error', 'يرجى إدخال اسم وكود المستودع.');
+            } else {
+                try {
+                    if ($warehouseModel->updateWarehouse((int)$id, $data)) {
+                        $this->setFlash('success', 'تم تعديل بيانات المستودع بنجاح.');
+                        $this->redirect('warehouse/index');
+                        return;
+                    } else {
+                        $this->setFlash('error', 'حدث خطأ أثناء التعديل.');
+                    }
+                } catch (PDOException $e) {
+                    // التقاط خطأ تكرار الكود أثناء التعديل
+                    if ($e->getCode() == 23000) {
+                        $this->setFlash('error', 'عفواً، كود المستودع مستخدم مسبقاً لمستودع آخر! يرجى اختيار كود فريد.');
+                    } else {
+                        $this->setFlash('error', 'حدث خطأ غير متوقع في قاعدة البيانات.');
+                    }
+                }
+            }
+        }
+
+        $data = [
+            'title' => 'تعديل المستودع',
+            'warehouse' => $warehouse,
+            'flash' => $this->getFlash(),
+            'breadcrumb' => [
+                ['label' => 'المخزون', 'url' => '#'],
+                ['label' => 'المستودعات', 'url' => 'warehouse/index'],
+                ['label' => 'تعديل', 'url' => '#']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('warehouse/edit', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+
+    public function delete(string $id = '') {
+        if ($this->isPost() && !empty($id) && is_numeric($id)) {
+            $warehouseModel = $this->model('Warehouse');
+            try {
+                if ($warehouseModel->deleteWarehouse((int)$id)) {
+                    $this->setFlash('success', 'تم حذف المستودع بنجاح.');
+                } else {
+                    $this->setFlash('error', 'لا يمكن حذف المستودع الرئيسي.');
+                }
+            } catch (PDOException $e) {
+                $this->setFlash('error', 'لا يمكن حذف هذا المستودع لارتباطه بعمليات نقل سابقة أو بضائع مخزنة فيه.');
+            }
+        }
+        $this->redirect('warehouse/index');
+    }
+
     public function transfers() {
         $db = Database::getInstance();
         $db->query('
@@ -79,7 +165,11 @@ class WarehouseController extends Controller {
         $data = [
             'title' => 'نقل المخزون',
             'transfers' => $transfers,
-            'flash' => $this->getFlash()
+            'flash' => $this->getFlash(),
+            'breadcrumb' => [
+                ['label' => 'المخزون', 'url' => '#'],
+                ['label' => 'نقل المخزون', 'url' => 'warehouse/transfers']
+            ]
         ];
         
         ob_start();
@@ -126,7 +216,11 @@ class WarehouseController extends Controller {
                 'title' => 'نقل مخزون جديد',
                 'warehouses' => $warehouses,
                 'products' => $products,
-                'flash' => $this->getFlash()
+                'flash' => $this->getFlash(),
+                'breadcrumb' => [
+                    ['label' => 'نقل المخزون', 'url' => 'warehouse/transfers'],
+                    ['label' => 'أمر جديد', 'url' => '#']
+                ]
             ];
             
             ob_start();

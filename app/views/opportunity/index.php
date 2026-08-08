@@ -62,11 +62,21 @@ $columns = [
                     <div class="k-card" draggable="true" data-id="<?php echo $opp->id; ?>" data-value="<?php echo $opp->estimated_value; ?>">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div class="k-title fw-bold text-dark" style="font-size: 14px;"><a href="<?php echo URLROOT; ?>/opportunity/edit/<?php echo $opp->id; ?>" class="text-dark"><?php echo htmlspecialchars($opp->title); ?></a></div>
-                            <div class="dropdown">
-                                <span class="font-monospace fw-bold text-success fs-6" style="direction:ltr;"><?php echo number_format($opp->estimated_value, 0); ?></span>
-                            </div>
                         </div>
-                        
+                             <div class="d-flex flex-column align-items-end gap-1">
+                                <span class="font-monospace fw-bold text-success fs-6 mb-1" style="direction:ltr;"><?php echo number_format($opp->estimated_value, 0); ?></span>
+                                <div class="d-flex gap-1">
+                                    <a href="<?php echo URLROOT; ?>/opportunity/edit/<?php echo $opp->id; ?>" class="btn-icon view" style="width:24px; height:24px; font-size:11px;" title="تعديل"><i class="fas fa-pen text-primary"></i></a>
+                                    
+                                    <?php if(Session::hasRole('admin')): ?>
+                                    <form action="<?php echo URLROOT; ?>/opportunity/delete/<?php echo $opp->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('تأكيد حذف هذه الفرصة البيعية نهائياً؟');">
+                                        <button type="submit" class="btn-icon delete" style="width:24px; height:24px; font-size:11px; padding:0; border:none; background:transparent;" title="حذف">
+                                            <i class="fas fa-trash text-danger"></i>
+                                        </button>
+                                    </form>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                         <div class="k-company text-muted mb-2" style="font-size: 12px;">
                             <i class="fas fa-building"></i> <?php echo htmlspecialchars($opp->customer_name ?? 'بدون عميل'); ?>
                         </div>

@@ -3,9 +3,41 @@
 
 class Employee extends Model {
     
-    public function __construct() {
+      public function __construct() {
         parent::__construct();
         $this->table = 'employees';
+        
+        // 🟢 استدعاء دالة الترقية التلقائية لتفادي أخطاء نقص الأعمدة
+        $this->autoUpgradeTable();
+    }
+
+    /**
+     * دالة ذكية لفحص وإنشاء الأعمدة المفقودة في جدول الموظفين
+     */
+    private function autoUpgradeTable() {
+        // قائمة بالأعمدة التي قد تكون مفقودة
+        $columnsToAdd = [
+            'company_id'    => "INT DEFAULT 1",
+            'department_id' => "INT NULL",
+            'position'      => "VARCHAR(100) NULL",
+            'join_date'     => "DATE NULL",
+            'salary'        => "DECIMAL(10,2) DEFAULT 0.00",
+            'status'        => "VARCHAR(50) DEFAULT 'active'"
+        ];
+
+        foreach ($columnsToAdd as $colName => $colDef) {
+            try {
+                $this->db->query("SHOW COLUMNS FROM {$this->table} LIKE '{$colName}'");
+                $exists = $this->db->resultSet();
+                
+                if (empty($exists)) {
+                    $this->db->query("ALTER TABLE {$this->table} ADD `{$colName}` {$colDef}");
+                    $this->db->execute();
+                }
+            } catch (Exception $e) {
+                // تجاهل بصمت حتى لا يتوقف النظام
+            }
+        }
     }
 
     public function getAllEmployees(): array {
@@ -62,11 +94,29 @@ class Employee extends Model {
         
         return $this->db->execute();
     }
-
+  public function emailExists(string $email, ?int $excludeId = null): bool {
+        $sql = "SELECT id FROM employees WHERE email = :email AND company_id = :cid";
+        
+        if ($excludeId) {
+            $sql .= " AND id != :exclude_id";
+        }
+        
+        $this->db->query($sql);
+        $this->db->bind(':email', $email);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
+        
+        if ($excludeId) {
+            $this->db->bind(':exclude_id', $excludeId);
+        }
+        
+        $this->db->execute();
+        return $this->db->rowCount() > 0;
+    }
     public function deleteEmployee(int $id): bool {
         $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
         $this->db->bind(':id', $id, PDO::PARAM_INT);
         $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
         return $this->db->execute();
     }
+    
 }

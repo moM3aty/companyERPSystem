@@ -21,9 +21,9 @@ class Sale extends Model {
     }
 
     /**
-     * إصدار فاتورة مبيعات مع خصم المخزون، وإنشاء القيد المحاسبي التلقائي، وتحديث رصيد العميل
+     * إصدار فاتورة مبيعات (ترجع رقم الفاتورة ID لكي يتم عرضها لاحقاً)
      */
-    public function createInvoice(array $data, array $items): bool {
+    public function createInvoice(array $data, array $items) { // تم إزالة :bool لترجع إما رقم الفاتورة أو false
         try {
             $this->db->beginTransaction();
             $invoiceNumber = 'INV-' . date('Ymd') . '-' . str_pad((string)random_int(100, 999), 3, '0', STR_PAD_LEFT);
@@ -44,10 +44,12 @@ class Sale extends Model {
 
             $invoiceId = (int)$this->db->lastInsertId();
 
-            // 2. إدراج أصناف الفاتورة وخصم المخزون + التحقق من توفر الكمية
+            // 2. إدراج أصناف الفاتورة وخصم المخزون
             $sqlItem = "INSERT INTO invoice_items (invoice_id, product_id, quantity, price, subtotal, created_at) 
                         VALUES (:invoice_id, :product_id, :quantity, :price, :subtotal, NOW())";
-            $sqlStock = "UPDATE products SET quantity = quantity - :qty WHERE id = :pid AND quantity >= :qty";
+            
+            // 🟢 الحل الجذري: إزالة شرط (AND quantity >= :qty) للسماح ببيع المنتجات حتى لو كان المخزون صفر
+            $sqlStock = "UPDATE products SET quantity = quantity - :qty WHERE id = :pid";
 
             foreach ($items as $item) {
                 $this->db->query($sqlItem);
@@ -58,14 +60,11 @@ class Sale extends Model {
                 $this->db->bind(':subtotal', $item['subtotal']);
                 $this->db->execute();
 
+                // تحديث المخزون
                 $this->db->query($sqlStock);
                 $this->db->bind(':qty', $item['quantity'], PDO::PARAM_INT);
                 $this->db->bind(':pid', $item['product_id'], PDO::PARAM_INT);
                 $this->db->execute();
-
-                if ($this->db->rowCount() === 0) {
-                    throw new Exception("الكمية المتاحة غير كافية للمنتج رقم: " . $item['product_id']);
-                }
 
                 // فحص تنبيه حد إعادة الطلب
                 $this->db->query("SELECT name, quantity, reorder_point FROM products WHERE id = :pid");
@@ -85,8 +84,7 @@ class Sale extends Model {
                 $this->db->execute();
             }
 
-            // 4. إنشاء القيد المحاسبي الآلي للمبيعات (Auto Journal Entry)
-            // من حـ/ العملاء أو الصندوق (مدين) إلى حـ/ إيرادات المبيعات (دائن)
+            // 4. إنشاء القيد المحاسبي الآلي للمبيعات
             $dbCoa = $this->db;
             $dbCoa->query("SELECT id FROM chart_of_accounts WHERE type = 'revenue' LIMIT 1");
             $revenueAcc = $dbCoa->single();
@@ -111,11 +109,11 @@ class Sale extends Model {
                 );
             }
 
-            // 5. تسجيل النشاط في سجل الأنشطة (Audit Trail)
+            // 5. تسجيل النشاط
             ActivityLog::logAction('CREATE', 'Invoices', $invoiceId, "تم إصدار فاتورة مبيعات برقم {$invoiceNumber} بمبلغ {$data['total_amount']}");
 
             $this->db->commit();
-            return true;
+            return $invoiceId; // 🟢 إرجاع رقم الفاتورة لتتمكن الواجهة من التوجه لطباعتها
         } catch (Exception $e) {
             $this->db->rollBack();
             return false;
@@ -144,9 +142,6 @@ class Sale extends Model {
         return $this->db->resultSet();
     }
 
-    /**
-     * حساب عمولات المبيعات حسب مندوب المبيعات (بنسبة افتراضية 5%)
-     */
     public function getSalesCommissions(float $commissionRate = 0.05): array {
         $sql = "SELECT i.sales_rep_id, u.name as rep_name, 
                        COUNT(i.id) as invoice_count, 

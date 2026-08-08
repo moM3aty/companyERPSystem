@@ -48,6 +48,51 @@ class CategoryController extends Controller {
         $this->redirect('category/index');
     }
 
+    public function edit(string $id = ''): void {
+        if (empty($id) || !is_numeric($id)) $this->redirect('category/index');
+        
+        $catId = (int)$id;
+        $category = $this->categoryModel->findById($catId);
+        
+        if (!$category) {
+            $this->setFlash('error', 'التصنيف غير موجود.');
+            $this->redirect('category/index');
+        }
+
+        if ($this->isPost()) {
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            $data = [
+                'name' => trim($_POST['name'] ?? ''),
+                'description' => trim($_POST['description'] ?? '')
+            ];
+
+            if (empty($data['name'])) {
+                $this->setFlash('error', 'يرجى إدخال اسم التصنيف.');
+            } elseif ($this->categoryModel->update($catId, $data)) {
+                $this->setFlash('success', 'تم تعديل التصنيف بنجاح.');
+                $this->redirect('category/index');
+                return;
+            } else {
+                $this->setFlash('error', 'حدث خطأ أثناء التعديل.');
+            }
+        }
+
+        $data = [
+            'title' => 'تعديل تصنيف',
+            'category' => $category,
+            'breadcrumb' => [
+                ['label' => 'المخازن', 'url' => '#'],
+                ['label' => 'التصنيفات', 'url' => 'category/index'],
+                ['label' => 'تعديل', 'url' => '#']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('categories/edit', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+
     public function delete(string $id = ''): void {
         $this->requireRole('admin');
         if ($this->isPost() && !empty($id) && is_numeric($id)) {

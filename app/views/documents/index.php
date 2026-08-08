@@ -22,11 +22,21 @@ function formatBytes(float|int $bytes, int $precision = 2): string {
     </a>
 </div>
 
+<?php 
+    $flash = Session::getFlash();
+    if ($flash): 
+?>
+    <div class="flash-msg flash-<?php echo $flash['type']; ?>">
+        <i class="fas fa-<?php echo $flash['type'] === 'success' ? 'circle-check' : 'circle-xmark'; ?>"></i>
+        <?php echo htmlspecialchars($flash['message']); ?>
+    </div>
+<?php endif; ?>
+
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table mb-0">
-                <thead>
+                <thead class="bg-light">
                     <tr>
                         <th style="width: 40px;" class="text-center">النوع</th>
                         <th>عنوان الوثيقة</th>
@@ -57,14 +67,17 @@ function formatBytes(float|int $bytes, int $precision = 2): string {
                         </td>
                         <td class="font-monospace fw-bold text-dark" style="direction:ltr; text-align:right;"><?php echo formatBytes($doc->file_size); ?></td>
                         <td class="text-center"><span class="badge <?php echo $accessClass; ?>"><?php echo $accessLabel; ?></span></td>
-                 <td class="text-muted fs-6">
-                            <div class="fw-bold text-body"><i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($doc->uploaded_by_name); ?></div>
+                        <td class="text-muted fs-6">
+                            <div class="fw-bold text-body"><i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($doc->uploader_name ?? $doc->uploaded_by_name ?? 'غير معروف'); ?></div>
                             <div style="font-size:11px;"><i class="far fa-clock"></i> <?php echo date('Y-m-d H:i', strtotime($doc->created_at)); ?></div>
                         </td>
                         <td class="text-center">
                             <div class="d-flex align-items-center justify-content-center gap-2">
+                                <!-- زر إصدارات الملف الذي طلبته -->
                                 <a href="<?php echo URLROOT; ?>/documentVersion/index/<?php echo $doc->id; ?>" class="btn-icon text-warning" style="background:var(--accent-light); border-color:var(--accent);" title="إصدارات الملف"><i class="fas fa-code-branch"></i></a>
+                                
                                 <a href="<?php echo URLROOT; ?>/document/download/<?php echo $doc->id; ?>" class="btn-icon view" title="تنزيل"><i class="fas fa-download"></i></a>
+                                
                                 <?php if (Session::getUserRole() === 'admin' || Session::getUserId() === $doc->uploaded_by): ?>
                                 <form action="<?php echo URLROOT; ?>/document/delete/<?php echo $doc->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('تأكيد الحذف نهائياً؟');">
                                     <button type="submit" class="btn-icon delete" title="حذف"><i class="fas fa-trash"></i></button>

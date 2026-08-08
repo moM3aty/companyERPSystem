@@ -5,16 +5,24 @@ $timesheets = $timesheets ?? ($data['timesheets'] ?? []);
 $tasks = $tasks ?? ($data['tasks'] ?? []);
 $employees = $employees ?? ($data['employees'] ?? []);
 $totalHours = $totalHours ?? ($data['totalHours'] ?? 0);
+
+// حماية في حال لم يتم تمرير المشروع
+if (!$project) {
+    echo "<div class='alert alert-danger'>خطأ: بيانات المشروع غير متوفرة.</div>";
+    return;
+}
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h3 class="mb-0 text-dark"><i class="fas fa-stopwatch text-info"></i> سجل تتبع الوقت (Timesheets)</h3>
-        <p class="text-muted mt-1 font-monospace fs-6">مشروع: <?php echo htmlspecialchars($project->name); ?></p>
+        <p class="text-muted mt-1 font-monospace fs-6">مشروع: <?php echo htmlspecialchars($project->name ?? ''); ?></p>
     </div>
     <div class="text-left bg-white p-3 rounded border shadow-sm">
         <div class="text-muted fs-6 fw-bold text-uppercase mb-1">إجمالي الساعات المسجلة</div>
-        <div class="font-monospace fw-bold text-primary" style="font-size: 24px; direction:ltr; text-align:right;"><?php echo number_format($totalHours, 2); ?> <span class="fs-6 text-muted">Hrs</span></div>
+        <div class="font-monospace fw-bold text-primary" style="font-size: 24px; direction:ltr; text-align:right;">
+            <?php echo number_format((float)$totalHours, 2); ?> <span class="fs-6 text-muted">Hrs</span>
+        </div>
     </div>
 </div>
 
@@ -92,16 +100,17 @@ $totalHours = $totalHours ?? ($data['totalHours'] ?? 0);
                         <?php foreach($timesheets as $ts): ?>
                         <tr>
                             <td class="text-muted fs-6 font-monospace"><?php echo $ts->date; ?></td>
-                            <td class="fw-bold text-dark"><i class="fas fa-user-circle text-muted"></i> <?php echo htmlspecialchars($ts->employee_name); ?></td>
+                            <td class="fw-bold text-dark"><i class="fas fa-user-circle text-muted"></i> <?php echo htmlspecialchars($ts->employee_name ?? ''); ?></td>
                             <td class="text-muted fs-6"><?php echo htmlspecialchars($ts->task_title ?? 'عام'); ?></td>
-                            <td class="font-monospace text-muted" style="font-size: 12px;">
-                                <?php echo date('H:i', strtotime($ts->start_time)); ?> - <?php echo date('H:i', strtotime($ts->end_time)); ?>
+                            <td class="font-monospace text-muted" style="font-size: 12px; direction:ltr; text-align:right;">
+                                <?php echo date('H:i', strtotime($ts->start_time ?? '00:00')); ?> - <?php echo date('H:i', strtotime($ts->end_time ?? '00:00')); ?>
                             </td>
                             <td class="text-center font-monospace fw-bold text-info fs-5" style="direction:ltr;">
-                                <?php echo $ts->total_hours; ?>
+                                <?php echo number_format((float)($ts->total_hours ?? 0), 2); ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
+                        
                         <?php if(empty($timesheets)): ?>
                         <tr><td colspan="5" class="text-center text-muted p-5">لا توجد أوقات مسجلة على هذا المشروع.</td></tr>
                         <?php endif; ?>

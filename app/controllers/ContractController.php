@@ -3,89 +3,148 @@
 
 class ContractController extends Controller {
     
-    private Contract $contractModel;
+    private $contractModel; // تم تصحيح الخطأ هنا بإزالة كلمة clone
 
     public function __construct() {
         $this->requireAuth();
         $this->contractModel = $this->model('Contract');
     }
 
-    public function index(): void {
-        // 🟢 إطلاق فحص العقود الذكي: سيتم توليد إشعارات إذا كان هناك عقود تنتهي قريباً
-        NotificationHelper::checkExpiringContracts();
-        
-        $contracts = $this->contractModel->getAllContractsDetails();
+    public function index() {
+        $contracts = $this->contractModel->getAllContracts();
         
         $data = [
-            'title' => 'إدارة العقود والمواثيق',
+            'title' => 'إدارة العقود',
             'contracts' => $contracts,
             'breadcrumb' => [
-                ['label' => 'CRM والمشاريع', 'url' => '#'],
-                ['label' => 'إدارة العقود', 'url' => 'contract/index']
+                ['label' => 'العمليات', 'url' => '#'],
+                ['label' => 'العقود', 'url' => 'contract/index']
             ]
         ];
         
         ob_start();
-        $this->view('contracts/index', $data);
+        $this->view('contract/index', $data);
         $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function create(): void {
+    public function create() {
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             
-            $contractNumber = 'CNT-' . date('Ym') . '-' . str_pad((string)random_int(10, 999), 3, '0', STR_PAD_LEFT);
-            
             $data = [
-                'contract_number' => $contractNumber,
+                'contract_number' => trim($_POST['contract_number'] ?? 'CTR-' . time()),
                 'title' => trim($_POST['title'] ?? ''),
-                'party_type' => $_POST['party_type'] ?? 'customer',
-                'party_id' => !empty($_POST['party_id']) ? (int)$_POST['party_id'] : null,
-                'start_date' => $_POST['start_date'] ?? null,
-                'end_date' => $_POST['end_date'] ?? null,
+                'customer_name' => trim($_POST['customer_name'] ?? ''),
+                'start_date' => trim($_POST['start_date'] ?? ''),
+                'end_date' => trim($_POST['end_date'] ?? ''),
                 'value' => (float)($_POST['value'] ?? 0),
-                'status' => $_POST['status'] ?? 'active',
+                'status' => trim($_POST['status'] ?? 'draft'),
                 'description' => trim($_POST['description'] ?? '')
             ];
-            
-            if (empty($data['title']) || empty($data['party_id']) || empty($data['end_date'])) {
-                $this->setFlash('error', 'عنوان العقد، الطرف المعني، وتاريخ الانتهاء حقول مطلوبة.');
-                $this->redirect('contract/create');
-            }
 
-            if ($this->contractModel->createContractDetails($data)) {
-                $this->setFlash('success', 'تم تسجيل العقد بنجاح وإدراجه في نظام التنبيهات الآلية.');
-                $this->redirect('contract/index');
+            if (empty($data['title'])) {
+                $this->setFlash('error', 'يجب إدخال عنوان / موضوع العقد.');
             } else {
-                $this->setFlash('error', 'حدث خطأ أثناء حفظ العقد في قاعدة البيانات.');
-                $this->redirect('contract/create');
+                if ($this->contractModel->createContract($data)) {
+                    $this->setFlash('success', 'تم تسجيل العقد بنجاح.');
+                    $this->redirect('contract/index');
+                    return;
+                } else {
+                    $this->setFlash('error', 'حدث خطأ أثناء الحفظ.');
+                }
             }
-        } else {
-            $db = Database::getInstance();
-            $db->query('SELECT id, name FROM customers ORDER BY name ASC');
-            $customers = $db->resultSet();
-            $db->query('SELECT id, name FROM suppliers ORDER BY name ASC');
-            $suppliers = $db->resultSet();
-
-            $data = [
-                'title' => 'تسجيل عقد جديد',
-                'customers' => $customers,
-                'suppliers' => $suppliers,
-                'breadcrumb' => [
-                    ['label' => 'العقود', 'url' => 'contract/index'],
-                    ['label' => 'تسجيل عقد', 'url' => '#']
-                ]
-            ];
-
-            ob_start();
-            $this->view('contracts/create', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
         }
+        
+        $data = [
+            'title' => 'إضافة عقد جديد',
+            'default_number' => 'CTR-' . date('Ymd') . '-' . rand(10, 99),
+            'breadcrumb' => [
+                ['label' => 'العقود', 'url' => 'contract/index'],
+                ['label' => 'إضافة', 'url' => '#']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('contract/create', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    public function delete(string $id = ''): void {
+    public function show(string $id = '') {
+        if (empty($id) || !is_numeric($id)) $this->redirect('contract/index');
+        
+        $contract = $this->contractModel->getContractById((int)$id);
+        if (!$contract) {
+            $this->setFlash('error', 'العقد غير موجود.');
+            $this->redirect('contract/index');
+        }
+
+        $data = [
+            'title' => 'تفاصيل العقد',
+            'contract' => $contract,
+            'breadcrumb' => [
+                ['label' => 'العقود', 'url' => 'contract/index'],
+                ['label' => 'عرض العقد', 'url' => '#']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('contract/show', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+
+    public function edit(string $id = '') {
+        if (empty($id) || !is_numeric($id)) $this->redirect('contract/index');
+        
+        $contractId = (int)$id;
+        $contract = $this->contractModel->getContractById($contractId);
+        
+        if (!$contract) {
+            $this->setFlash('error', 'العقد غير موجود.');
+            $this->redirect('contract/index');
+        }
+
+        if ($this->isPost()) {
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            
+            $data = [
+                'contract_number' => trim($_POST['contract_number'] ?? ''),
+                'title' => trim($_POST['title'] ?? ''),
+                'customer_name' => trim($_POST['customer_name'] ?? ''),
+                'start_date' => trim($_POST['start_date'] ?? ''),
+                'end_date' => trim($_POST['end_date'] ?? ''),
+                'value' => (float)($_POST['value'] ?? 0),
+                'status' => trim($_POST['status'] ?? 'draft'),
+                'description' => trim($_POST['description'] ?? '')
+            ];
+
+            if ($this->contractModel->updateContract($contractId, $data)) {
+                $this->setFlash('success', 'تم تعديل العقد بنجاح.');
+                $this->redirect('contract/index');
+                return;
+            } else {
+                $this->setFlash('error', 'حدث خطأ أثناء التعديل.');
+            }
+        }
+
+        $data = [
+            'title' => 'تعديل العقد',
+            'contract' => $contract,
+            'breadcrumb' => [
+                ['label' => 'العقود', 'url' => 'contract/index'],
+                ['label' => 'تعديل', 'url' => '#']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('contract/edit', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+
+    public function delete(string $id = '') {
         $this->requireRole('admin');
         if ($this->isPost() && !empty($id) && is_numeric($id)) {
             if ($this->contractModel->deleteContract((int)$id)) {

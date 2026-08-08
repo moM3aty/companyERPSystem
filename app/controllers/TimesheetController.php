@@ -1,26 +1,25 @@
 <?php
-// المسار: app/controllers/TimesheetController.php
+// app/controllers/TimesheetController.php
 
 class TimesheetController extends Controller {
-    private Timesheet $timeModel;
-    private Project $projectModel;
+    
+    private $timesheetModel;
 
     public function __construct() {
         $this->requireAuth();
-        $this->timeModel = $this->model('Timesheet');
-        $this->projectModel = $this->model('Project');
+        $this->timesheetModel = $this->model('Timesheet');
     }
 
-    // إضافة الدالة الافتراضية للرابط الرئيسي
-    public function index(): void {
-        $timesheets = $this->timeModel->getAllTimesheets();
+    // 🟢 تعديل دالة index لتعرض السجل الشامل بدلاً من التحويل 🟢
+    public function index() {
+        $timesheets = $this->timesheetModel->getAllTimesheets();
         
         $data = [
-            'title' => 'السجل الشامل لأوقات العمل',
+            'title' => 'السجل الشامل لتتبع الوقت',
             'timesheets' => $timesheets,
             'breadcrumb' => [
                 ['label' => 'المشاريع', 'url' => 'project/index'],
-                ['label' => 'سجل الأوقات', 'url' => 'timesheet/index']
+                ['label' => 'سجل الوقت الشامل', 'url' => 'timesheet/index']
             ]
         ];
         
@@ -30,30 +29,41 @@ class TimesheetController extends Controller {
         Layout::render($content, $data);
     }
 
-    public function project(string $id = ''): void {
-        if (empty($id) || !is_numeric($id)) $this->redirect('project/index');
-        $projectId = (int)$id;
+    public function project(string $projectId = '') {
+        if (empty($projectId) || !is_numeric($projectId)) {
+            $this->redirect('project/index');
+        }
         
-        $project = $this->projectModel->getProjectById($projectId);
-        if (!$project) $this->redirect('project/index');
+        $projectModel = $this->model('Project');
+        $project = $projectModel->getProjectById((int)$projectId);
         
-        $timesheets = $this->timeModel->getTimesheetsByProject($projectId);
-        $totalHours = $this->timeModel->getTotalHoursForProject($projectId);
-        $tasks = $this->projectModel->getProjectTasks($projectId);
+        if (!$project) {
+            $this->setFlash('error', 'المشروع غير موجود.');
+            $this->redirect('project/index');
+        }
+
+        $timesheets = $this->timesheetModel->getProjectTimesheets((int)$projectId);
+        $tasks = $projectModel->getTasks((int)$projectId);
         
-        $db = Database::getInstance();
-        $db->query("SELECT id, name FROM employees ORDER BY name ASC");
-        $employees = $db->resultSet();
+        $employeeModel = $this->model('Employee');
+        $employees = $employeeModel->getAllEmployees();
+
+        // حساب إجمالي الساعات
+        $totalHours = 0;
+        foreach ($timesheets as $ts) {
+            $totalHours += (float)$ts->total_hours;
+        }
 
         $data = [
-            'title' => 'تتبع وقت المشروع',
+            'title' => 'سجل تتبع الوقت للمشروع',
             'project' => $project,
             'timesheets' => $timesheets,
-            'totalHours' => $totalHours,
             'tasks' => $tasks,
             'employees' => $employees,
+            'totalHours' => $totalHours,
             'breadcrumb' => [
                 ['label' => 'المشاريع', 'url' => 'project/index'],
+                ['label' => 'المهام', 'url' => 'project/show/' . $projectId],
                 ['label' => 'تتبع الوقت', 'url' => '#']
             ]
         ];
@@ -64,37 +74,36 @@ class TimesheetController extends Controller {
         Layout::render($content, $data);
     }
 
-    public function logTime(string $projectId = ''): void {
-        if ($this->isPost() && !empty($projectId) && is_numeric($projectId)) {
+    public function logTime(string $projectId = '') {
+        if ($this->isPost() && !empty($projectId)) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             
-            $startTime = trim($_POST['start_time'] ?? '');
-            $endTime = trim($_POST['end_time'] ?? '');
+            $start = strtotime($_POST['start_time']);
+            $end = strtotime($_POST['end_time']);
             
-            $t1 = strtotime($startTime);
-            $t2 = strtotime($endTime);
-            $diffHours = ($t2 - $t1) / 3600;
-            if($diffHours < 0) $diffHours = 0;
+            // في حالة كان الإنتهاء بعد منتصف الليل
+            if ($end < $start) {
+                $end += 86400; // إضافة 24 ساعة
+            }
+            
+            // حساب الفارق بالساعات (التقريب لمنزلتين عشريتين)
+            $totalHours = round(($end - $start) / 3600, 2);
 
             $data = [
                 'project_id' => (int)$projectId,
                 'task_id' => !empty($_POST['task_id']) ? (int)$_POST['task_id'] : null,
-                'employee_id' => (int)($_POST['employee_id'] ?? 0),
-                'date' => trim($_POST['date'] ?? date('Y-m-d')),
-                'start_time' => $startTime,
-                'end_time' => $endTime,
-                'total_hours' => round($diffHours, 2),
+                'employee_id' => (int)$_POST['employee_id'],
+                'date' => $_POST['date'],
+                'start_time' => $_POST['start_time'],
+                'end_time' => $_POST['end_time'],
+                'total_hours' => $totalHours,
                 'note' => trim($_POST['note'] ?? '')
             ];
 
-            if (empty($data['employee_id']) || $diffHours <= 0) {
-                $this->setFlash('error', 'بيانات الوقت غير صحيحة، تأكد من إدخال وقت صحيح.');
+            if ($this->timesheetModel->logTime($data)) {
+                $this->setFlash('success', 'تم حفظ وقت الإنجاز بنجاح.');
             } else {
-                if ($this->timeModel->logTime($data)) {
-                    $this->setFlash('success', 'تم تسجيل الوقت بنجاح.');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء التسجيل.');
-                }
+                $this->setFlash('error', 'حدث خطأ أثناء الحفظ.');
             }
         }
         $this->redirect('timesheet/project/' . $projectId);
