@@ -6,81 +6,87 @@ class Supplier extends Model {
     public function __construct() {
         parent::__construct();
         $this->table = 'suppliers';
+        $this->autoUpgradeTable();
     }
 
-    public function getAllSuppliers(): array {
-        $this->db->query("SELECT * FROM {$this->table} WHERE company_id = :cid ORDER BY id DESC");
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        return $this->db->resultSet();
-    }
+    private function autoUpgradeTable() {
+        try {
+            $this->db->query("CREATE TABLE IF NOT EXISTS `{$this->table}` (
+                `id` int(11) NOT NULL AUTO_INCREMENT,
+                PRIMARY KEY (`id`)
+            )");
+            $this->db->execute();
+        } catch (Exception $e) {}
 
-    public function getTotalPayables(): float {
-        $this->db->query("SELECT COALESCE(SUM(balance), 0) as total FROM {$this->table} WHERE company_id = :cid AND balance > 0");
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        $row = $this->db->single();
-        return (float)($row->total ?? 0);
-    }
+        $columns = [
+            'company_id' => "INT DEFAULT 1",
+            'name'       => "VARCHAR(255) NOT NULL",
+            'email'      => "VARCHAR(100) DEFAULT NULL",
+            'phone'      => "VARCHAR(50) DEFAULT NULL",
+            'address'    => "TEXT DEFAULT NULL",
+            'tax_number' => "VARCHAR(100) DEFAULT NULL",
+            'balance'    => "DECIMAL(15,2) DEFAULT 0.00",
+            'created_at' => "DATETIME DEFAULT CURRENT_TIMESTAMP"
+        ];
 
-    // إضافة الدالة المفقودة للـ Controller مع دعم عزل الـ SaaS
-    public function getFilteredSuppliers(string $search = ''): array {
-        if(empty($search)) {
-            return $this->getAllSuppliers();
+        foreach ($columns as $colName => $colDef) {
+            try {
+                $this->db->query("SHOW COLUMNS FROM `{$this->table}` LIKE '{$colName}'");
+                if (empty($this->db->resultSet())) {
+                    $this->db->query("ALTER TABLE `{$this->table}` ADD `{$colName}` {$colDef}");
+                    $this->db->execute();
+                }
+            } catch (Exception $e) {}
         }
-        $this->db->query("SELECT * FROM {$this->table} WHERE company_id = :cid AND (name LIKE :search OR company LIKE :search OR phone LIKE :search) ORDER BY id DESC");
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        $this->db->bind(':search', '%' . $search . '%');
+    }
+
+    public function getAllSuppliers() {
+        $this->db->query("SELECT * FROM {$this->table} WHERE company_id = :cid ORDER BY id DESC");
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
         return $this->db->resultSet();
     }
 
-    public function getSupplierById(int $id): ?object {
+    public function getSupplierById($id) {
         $this->db->query("SELECT * FROM {$this->table} WHERE id = :id AND company_id = :cid LIMIT 1");
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        $this->db->bind(':id', $id);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
         return $this->db->single();
     }
 
-    public function createSupplier(array $data): bool {
-        $sql = "INSERT INTO {$this->table} (company_id, name, email, phone, address, company, balance, created_at) 
-                VALUES (:cid, :name, :email, :phone, :address, :company, :balance, NOW())";
-        
+    public function createSupplier($data) {
+        $sql = "INSERT INTO {$this->table} (company_id, name, email, phone, address, tax_number, balance) 
+                VALUES (:cid, :name, :email, :phone, :address, :tax, :balance)";
         $this->db->query($sql);
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
         $this->db->bind(':name', $data['name']);
         $this->db->bind(':email', $data['email']);
         $this->db->bind(':phone', $data['phone']);
         $this->db->bind(':address', $data['address']);
-        $this->db->bind(':company', $data['company']);
+        $this->db->bind(':tax', $data['tax_number']);
         $this->db->bind(':balance', $data['balance'] ?? 0);
-        
-        if($this->db->execute()){
-            ActivityLog::logAction('CREATE', 'Suppliers', $this->db->lastInsertId(), "إضافة مورد جديد: {$data['name']}");
-            return true;
-        }
-        return false;
-    }
-
-    public function updateSupplier(int $id, array $data): bool {
-        $sql = "UPDATE {$this->table} 
-                SET name = :name, email = :email, phone = :phone, address = :address, company = :company, balance = :balance 
-                WHERE id = :id AND company_id = :cid";
-                
-        $this->db->query($sql);
-        $this->db->bind(':name', $data['name']);
-        $this->db->bind(':email', $data['email']);
-        $this->db->bind(':phone', $data['phone']);
-        $this->db->bind(':address', $data['address']);
-        $this->db->bind(':company', $data['company']);
-        $this->db->bind(':balance', $data['balance']);
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        
         return $this->db->execute();
     }
 
-    public function deleteSupplier(int $id): bool {
+    public function updateSupplier($id, $data) {
+        $sql = "UPDATE {$this->table} 
+                SET name = :name, email = :email, phone = :phone, address = :address, tax_number = :tax, balance = :balance 
+                WHERE id = :id AND company_id = :cid";
+        $this->db->query($sql);
+        $this->db->bind(':name', $data['name']);
+        $this->db->bind(':email', $data['email']);
+        $this->db->bind(':phone', $data['phone']);
+        $this->db->bind(':address', $data['address']);
+        $this->db->bind(':tax', $data['tax_number']);
+        $this->db->bind(':balance', $data['balance'] ?? 0);
+        $this->db->bind(':id', $id);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
+        return $this->db->execute();
+    }
+
+    public function deleteSupplier($id) {
         $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
+        $this->db->bind(':id', $id);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
         return $this->db->execute();
     }
 }

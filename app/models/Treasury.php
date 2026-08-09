@@ -5,83 +5,146 @@ class Treasury extends Model {
     
     public function __construct() {
         parent::__construct();
-        $this->table = 'treasuries';
+        $this->table = 'treasuries';$this->autoUpgradeTable();
     }
 
-    public function getAllTreasuries(): array {
-        $sql = "SELECT * FROM {$this->table} ORDER BY type ASC, id ASC";
-        $this->db->query($sql);
-        return $this->db->resultSet();
-    }
-
-    public function getAllTransactions(): array {
-        $sql = "SELECT ft.*, t.name as treasury_name, u.name as user_name 
-                FROM financial_transactions ft 
-                JOIN treasuries t ON ft.treasury_id = t.id 
-                LEFT JOIN users u ON ft.created_by = u.id 
-                ORDER BY ft.transaction_date DESC, ft.created_at DESC";
-        $this->db->query($sql);
-        return $this->db->resultSet();
-    }
-
-    public function createTransaction(array $data, bool $createJournal = true): bool {
+    /* STREAMING_CHUNK: Auto-upgrading tables... */
+    private function autoUpgradeTable() {
+        // 1. جدول الخزن والبنوك
         try {
-            if (!$this->db->isConnected()) return false;
-            // نبدأ المعاملة إذا لم تكن مبدوءة بالفعل من كلاس آخر (لتجنب تعارض الـ nested transactions)
-            $inTransaction = $this->db->inTransaction();
-            if (!$inTransaction) $this->db->beginTransaction();
+            $this->db->query("CREATE TABLE IF NOT EXISTS `treasuries` (
+                `id` int(11) NOT NULL AUTO_INCREMENT,
+                PRIMARY KEY (`id`)
+            )");
+            $this->db->execute();
+        } catch (Exception $e) {}
 
-            // 1. تسجيل الحركة
-            $sql = "INSERT INTO financial_transactions (treasury_id, transaction_type, amount, transaction_date, reference, description, created_by, created_at) 
-                    VALUES (:treasury_id, :transaction_type, :amount, :transaction_date, :reference, :description, :created_by, NOW())";
-            
-            $this->db->query($sql);
-            $this->db->bind(':treasury_id', $data['treasury_id'], PDO::PARAM_INT);
-            $this->db->bind(':transaction_type', $data['transaction_type']);
-            $this->db->bind(':amount', $data['amount']);
-            $this->db->bind(':transaction_date', $data['transaction_date']);
-            $this->db->bind(':reference', $data['reference'] ?? '');
-            $this->db->bind(':description', $data['description']);
-            $this->db->bind(':created_by', $data['created_by'], PDO::PARAM_INT);
-            
-            if (!$this->db->execute()) throw new Exception("فشل في إدراج السند المالي.");
-            $transactionId = $this->db->lastInsertId();
+        $columns = [
+            'company_id' => "INT DEFAULT 1",
+            'name'       => "VARCHAR(255) NOT NULL",
+            'type'       => "VARCHAR(50) DEFAULT 'cash'", 
+            'balance'    => "DECIMAL(15,2) DEFAULT 0.00",
+            'created_at' => "DATETIME DEFAULT CURRENT_TIMESTAMP"
+        ];
 
-            // 2. تحديث الرصيد
-            $updateSql = $data['transaction_type'] === 'receipt' 
-                ? "UPDATE treasuries SET current_balance = current_balance + :amount WHERE id = :id"
-                : "UPDATE treasuries SET current_balance = current_balance - :amount WHERE id = :id";
-
-            $this->db->query($updateSql);
-            $this->db->bind(':amount', $data['amount']);
-            $this->db->bind(':id', $data['treasury_id'], PDO::PARAM_INT);
-            if (!$this->db->execute()) throw new Exception("فشل في تحديث رصيد الخزينة.");
-
-            // 3. إنشاء قيد محاسبي إذا طُلب ذلك (في حالة الحركة اليدوية المباشرة)
-            if ($createJournal && !empty($data['account_id'])) {
-                $accountingModel = new Accounting();
-                $dbCoa = $this->db;
-                $dbCoa->query("SELECT id FROM chart_of_accounts WHERE type = 'asset' AND name LIKE '%صندوق%' LIMIT 1");
-                $cashAcc = $dbCoa->single();
-
-                if ($cashAcc) {
-                    $lines = [];
-                    if ($data['transaction_type'] === 'receipt') {
-                        $lines[] = ['account_id' => $cashAcc->id, 'debit' => $data['amount'], 'credit' => 0, 'description' => $data['description']];
-                        $lines[] = ['account_id' => $data['account_id'], 'debit' => 0, 'credit' => $data['amount'], 'description' => $data['description']];
-                    } else {
-                        $lines[] = ['account_id' => $data['account_id'], 'debit' => $data['amount'], 'credit' => 0, 'description' => $data['description']];
-                        $lines[] = ['account_id' => $cashAcc->id, 'debit' => 0, 'credit' => $data['amount'], 'description' => $data['description']];
-                    }
-                    $accountingModel->createJournalEntry($data['transaction_date'], "حركة خزينة: {$data['description']}", 'treasury_transaction', $transactionId, Session::getUserId(), $lines);
+        foreach ($columns as $col =>$def) {
+            try {
+                $this->db->query("SHOW COLUMNS FROM `treasuries` LIKE '{$col}'");
+                if (empty($this->db->resultSet())) {$this->db->query("ALTER TABLE `treasuries` ADD `{$col}` {$def}");
+                    $this->db->execute();
                 }
+            } catch (Exception $e) {}
+        }
+
+        // 2. جدول حركات الخزينة (إيداع / سحب)
+        try {
+            $this->db->query("CREATE TABLE IF NOT EXISTS `treasury_transactions` (
+                `id` int(11) NOT NULL AUTO_INCREMENT,
+                PRIMARY KEY (`id`)
+            )");
+            $this->db->execute();
+        } catch (Exception $e) {}
+
+        $transColumns = [
+            'company_id'       => "INT DEFAULT 1",
+            'treasury_id'      => "INT NOT NULL",
+            'type'             => "VARCHAR(50) NOT NULL DEFAULT 'deposit'",
+            'amount'           => "DECIMAL(15,2) NOT NULL DEFAULT 0.00",
+            'transaction_date' => "DATE NOT NULL",
+            'reference'        => "VARCHAR(100) DEFAULT NULL",
+            'notes'            => "TEXT DEFAULT NULL",
+            'created_by'       => "INT DEFAULT 0",
+            'created_at'       => "DATETIME DEFAULT CURRENT_TIMESTAMP"
+        ];
+
+        foreach ($transColumns as $col =>$def) {
+            try {
+                $this->db->query("SHOW COLUMNS FROM `treasury_transactions` LIKE '{$col}'");
+                if (empty($this->db->resultSet())) {$this->db->query("ALTER TABLE `treasury_transactions` ADD `{$col}` {$def}");
+                    $this->db->execute();
+                }
+            } catch (Exception $e) {}
+        }
+    }
+
+    /* STREAMING_CHUNK: Fetching operations... */
+    public function getAllTreasuries(): array {
+        $this->db->query("SELECT * FROM {$this->table} WHERE company_id = :cid ORDER BY id ASC");
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
+        return $this->db->resultSet();
+    }
+
+    public function getTreasuryById(int $id): ?object {
+        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id AND company_id = :cid LIMIT 1");
+        $this->db->bind(':id', $id);$this->db->bind(':cid', Session::get('company_id') ?: 1);
+        return $this->db->single();
+    }
+
+    public function createTreasury(array $data): bool {
+        $sql = "INSERT INTO {$this->table} (company_id, name, type, balance) VALUES (:cid, :name, :type, :balance)";
+        $this->db->query($sql);$this->db->bind(':cid', Session::get('company_id') ?: 1);
+        $this->db->bind(':name',$data['name']);
+        $this->db->bind(':type',$data['type'] ?? 'cash');
+        $this->db->bind(':balance',$data['balance'] ?? 0);
+        return $this->db->execute();
+    }
+
+    public function updateTreasury(int $id, array$data): bool {
+        $sql = "UPDATE {$this->table} SET name = :name, type = :type WHERE id = :id AND company_id = :cid";
+        $this->db->query($sql);$this->db->bind(':name', $data['name']);$this->db->bind(':type', $data['type'] ?? 'cash');$this->db->bind(':id', $id);$this->db->bind(':cid', Session::get('company_id') ?: 1);
+        return $this->db->execute();
+    }
+
+    public function deleteTreasury(int $id): bool {
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
+        $this->db->bind(':id', $id);$this->db->bind(':cid', Session::get('company_id') ?: 1);
+        return $this->db->execute();
+    }
+
+    /* STREAMING_CHUNK: Transactions... */
+    public function getTransactions(?int $treasuryId = null): array {$sql = "SELECT t.*, tr.name as treasury_name, u.name as creator_name 
+                FROM treasury_transactions t 
+                LEFT JOIN treasuries tr ON t.treasury_id = tr.id 
+                LEFT JOIN users u ON t.created_by = u.id 
+                WHERE t.company_id = :cid ";
+        
+        if ($treasuryId) {$sql .= " AND t.treasury_id = :tid ";
+        }
+        
+        $sql .= " ORDER BY t.transaction_date DESC, t.id DESC";
+
+        $this->db->query($sql);$this->db->bind(':cid', Session::get('company_id') ?: 1);
+        if ($treasuryId) {
+            $this->db->bind(':tid',$treasuryId);
+        }
+        return $this->db->resultSet();
+    }
+
+    public function createTransaction(array $data): bool {
+        try {
+            $this->db->beginTransaction();
+
+            $sql = "INSERT INTO treasury_transactions (company_id, treasury_id, type, amount, transaction_date, reference, notes, created_by) 
+                    VALUES (:cid, :tid, :type, :amt, :tdate, :ref, :notes, :user)";
+            $this->db->query($sql);$this->db->bind(':cid', Session::get('company_id') ?: 1);
+            $this->db->bind(':tid',$data['treasury_id']);
+            $this->db->bind(':type',$data['type']);
+            $this->db->bind(':amt',$data['amount']);
+            $this->db->bind(':tdate',$data['transaction_date']);
+            $this->db->bind(':ref',$data['reference'] ?? null);
+            $this->db->bind(':notes',$data['notes'] ?? null);
+            $this->db->bind(':user', Session::getUserId());$this->db->execute();
+
+            // تحديث الرصيد (إيداع يزيد، سحب ينقص)
+            if ($data['type'] === 'deposit') {$sqlBal = "UPDATE treasuries SET balance = balance + :amt WHERE id = :tid";
+            } else {
+                $sqlBal = "UPDATE treasuries SET balance = balance - :amt WHERE id = :tid";
             }
+            $this->db->query($sqlBal);$this->db->bind(':amt', $data['amount']);$this->db->bind(':tid', $data['treasury_id']);$this->db->execute();
 
-            if (!$inTransaction) $this->db->commit();
+            $this->db->commit();
             return true;
-
-        } catch (Exception $e) {
-            if (!$inTransaction) $this->db->rollBack();
+        } catch (Exception $e) {$this->db->rollBack();
             return false;
         }
     }

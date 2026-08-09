@@ -92,8 +92,8 @@ function isActive($uri, $paths) {
             
             <div style="padding: 30px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); background: var(--slate-900); min-height: 180px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                 <?php if(!empty($companyLogo)): ?>
-                    <img src="<?php echo $companyLogo; ?>" alt="Logo" style="width: 85px; height: 85px; border-radius: 12px; object-fit: contain; background: #ffffff; padding: 6px; margin-bottom: 15px; border: 2px solid var(--primary); display: block; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-                <?php else: ?>
+                    <img src="<?php echo URLROOT; ?>/assets/img/logo.png" onerror="this.src='<?php echo URLROOT; ?>/public/assets/img/logo.png'" alt="Logo" style="width: 85px; height: 85px; border-radius: 12px; object-fit: contain; background: #ffffff; padding: 6px; margin-bottom: 15px; border: 2px solid var(--primary); display: block; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <?php else: ?>
                     <div style="width: 85px; height: 85px; border-radius: 12px; background: #ffffff; color: var(--primary); font-size: 36px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; border: 2px solid var(--primary); box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
                         <i class="fas fa-building"></i>
                     </div>
@@ -233,8 +233,8 @@ function isActive($uri, $paths) {
                             
                             <!-- 🔴 لاحظ هنا: هذه القوائم تظهر فقط لحساب المالك (super_admin) -->
                             <?php if($userRole === 'super_admin'): ?>
-                            <li><a href="<?php echo URLROOT; ?>/superadmin/dashboard" class="sub-link <?php echo isActive($currentUri, ['/superadmin']) ? 'active' : ''; ?>"><i class="fas fa-crown text-warning me-2"></i>لوحة المالك (SaaS)</a></li>
-                            <li><a href="<?php echo URLROOT; ?>/company/index" class="sub-link <?php echo isActive($currentUri, ['/company']) ? 'active' : ''; ?>"><i class="fas fa-building text-info me-2"></i>الشركات المشتركة</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/superadmin/dashboard" class="sub-link <?php echo isActive($currentUri, ['/superadmin']) ? 'active' : ''; ?>">لوحة المالك </a></li>
+                            <li><a href="<?php echo URLROOT; ?>/company/index" class="sub-link <?php echo isActive($currentUri, ['/company']) ? 'active' : ''; ?>">الشركات المشتركة</a></li>
                             <?php endif; ?>
                             
                             <li><a href="<?php echo URLROOT; ?>/activityLog/index" class="sub-link <?php echo isActive($currentUri, ['/activityLog']) ? 'active' : ''; ?>">سجل التدقيق (Audit)</a></li>
@@ -245,13 +245,7 @@ function isActive($uri, $paths) {
                 </nav>
             </div>
             
-            <div class="sidebar-user">
-                <div class="su-avatar"><?php echo mb_substr($userName, 0, 2); ?></div>
-                <div class="su-info">
-                    <div class="su-name" title="<?php echo htmlspecialchars($userName); ?>"><?php echo htmlspecialchars($userName); ?></div>
-                    <div class="su-role"><?php echo htmlspecialchars($userRole); ?></div>
-                </div>
-            </div>
+            
         </aside>
 
         <!-- 🌟 Main Content Area 🌟 -->

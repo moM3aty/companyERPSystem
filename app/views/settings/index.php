@@ -353,17 +353,19 @@ $sysStats = $data['system_stats'] ?? [];
                 </div>
                 <div class="settings-card-body">
                     <div class="settings-grid">
-                        <div class="s-group full border-bottom pb-4 mb-2">
-                            <label class="s-label">شعار الشركة (Logo)</label>
-                            <div class="d-flex align-items-center gap-3">
-                                <?php if(!empty($settings['company_logo'])): ?>
-                                    <img src="<?php echo URLROOT . $settings['company_logo']; ?>" alt="Logo" style="width:60px; height:60px; border-radius:8px; object-fit:contain; border:1px solid var(--border-color);">
-                                <?php else: ?>
-                                    <div style="width:60px; height:60px; border-radius:8px; background:var(--page-bg); display:flex; align-items:center; justify-content:center; color:var(--text-muted);"><i class="fas fa-image"></i></div>
-                                <?php endif; ?>
-                                <input type="file" name="company_logo" class="s-input" accept="image/*" style="flex:1;">
+                         <div class="form-group border-top pt-4 mt-2">
+                    <label class="form-label">شعار الشركة (Logo)</label>
+                    <div class="d-flex align-items-center gap-3">
+                        <input type="file" name="company_logo" class="form-control" accept="image/*">
+                        
+                        <?php if(!empty($sysData['company_logo'])): ?>
+                            <div style="flex-shrink: 0; width: 60px; height: 60px; border-radius: 8px; border: 1px solid var(--border-color); padding: 4px; background: #fff;">
+                                <img src="<?php echo URLROOT . '/' . ltrim($sysData['company_logo'], '/'); ?>" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;">
                             </div>
-                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <small class="text-muted mt-2 d-block">يفضل أن يكون الشعار بصيغة PNG وبخلفية شفافة.</small>
+                </div>
 
                         <div class="s-group">
                             <label class="s-label">الاسم التجاري <span style="color:#ef4444;">*</span></label>

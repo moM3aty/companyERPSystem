@@ -11,6 +11,17 @@ $customers = $data['customers'] ?? [];
         <h3 class="card-title text-white mb-0"><i class="fas fa-pen"></i> تعديل أمر البيع: <?php echo htmlspecialchars($order->order_number ?? ''); ?></h3>
     </div>
     
+    <!-- 🟢 شريط إظهار الأخطاء والتنبيهات 🟢 -->
+    <?php 
+        $flash = Session::getFlash();
+        if ($flash): 
+    ?>
+        <div class="flash-msg flash-<?php echo $flash['type']; ?>" style="margin: 20px 20px 0;">
+            <i class="fas fa-<?php echo $flash['type'] === 'success' ? 'circle-check' : 'circle-xmark'; ?>"></i>
+            <?php echo htmlspecialchars($flash['message']); ?>
+        </div>
+    <?php endif; ?>
+
     <form action="<?php echo URLROOT; ?>/salesOrder/edit/<?php echo $order->id; ?>" method="POST" id="soForm">
         <div class="card-body">
             
@@ -66,24 +77,44 @@ $customers = $data['customers'] ?? [];
                         </tr>
                     </thead>
                     <tbody id="itemsContainer">
-                        <?php foreach($items as $item): ?>
+                        <?php if(empty($items)): ?>
+                        <!-- 🟢 سطر افتراضي في حال كان أمر البيع قديماً وفارغاً 🟢 -->
                         <tr class="so-row">
                             <td>
                                 <select name="product_id[]" class="form-control prod-select" required onchange="updateRow(this)">
                                     <option value="" data-price="0">-- اختر منتجاً --</option>
                                     <?php foreach($products as $p): ?>
-                                        <option value="<?php echo $p->id; ?>" data-price="<?php echo $p->price; ?>" <?php echo ($item->product_id == $p->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($p->name); ?></option>
+                                        <option value="<?php echo $p->id; ?>" data-price="<?php echo $p->price; ?>"><?php echo htmlspecialchars($p->name); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </td>
-                            <td><input type="number" step="1" min="1" name="quantity[]" class="form-control qty-input text-center fw-bold" value="<?php echo $item->quantity; ?>" oninput="updateRow(this)"></td>
-                            <td><input type="number" step="0.01" min="0" name="price[]" class="form-control price-input text-center font-monospace" value="<?php echo $item->unit_price; ?>" oninput="updateRow(this)" style="direction:ltr;"></td>
-                            <td class="text-center align-middle font-monospace fw-bold text-success subtotal-display" style="direction:ltr;"><?php echo number_format($item->subtotal, 2); ?></td>
+                            <td><input type="number" step="1" min="1" name="quantity[]" class="form-control qty-input text-center fw-bold" value="1" oninput="updateRow(this)"></td>
+                            <td><input type="number" step="0.01" min="0" name="price[]" class="form-control price-input text-center font-monospace" value="0" oninput="updateRow(this)" style="direction:ltr;"></td>
+                            <td class="text-center align-middle font-monospace fw-bold text-success subtotal-display" style="direction:ltr;">0.00</td>
                             <td class="text-center align-middle">
-                                <button type="button" class="btn-icon delete text-danger" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
+                                <button type="button" class="btn-icon delete text-danger" onclick="removeRow(this)" tabindex="-1"><i class="fas fa-times"></i></button>
                             </td>
                         </tr>
-                        <?php endforeach; ?>
+                        <?php else: ?>
+                            <?php foreach($items as $item): ?>
+                            <tr class="so-row">
+                                <td>
+                                    <select name="product_id[]" class="form-control prod-select" required onchange="updateRow(this)">
+                                        <option value="" data-price="0">-- اختر منتجاً --</option>
+                                        <?php foreach($products as $p): ?>
+                                            <option value="<?php echo $p->id; ?>" data-price="<?php echo $p->price; ?>" <?php echo ($item->product_id == $p->id) ? 'selected' : ''; ?>><?php echo htmlspecialchars($p->name); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                                <td><input type="number" step="1" min="1" name="quantity[]" class="form-control qty-input text-center fw-bold" value="<?php echo $item->quantity; ?>" oninput="updateRow(this)"></td>
+                                <td><input type="number" step="0.01" min="0" name="price[]" class="form-control price-input text-center font-monospace" value="<?php echo $item->unit_price; ?>" oninput="updateRow(this)" style="direction:ltr;"></td>
+                                <td class="text-center align-middle font-monospace fw-bold text-success subtotal-display" style="direction:ltr;"><?php echo number_format($item->subtotal, 2, '.', ''); ?></td>
+                                <td class="text-center align-middle">
+                                    <button type="button" class="btn-icon delete text-danger" onclick="removeRow(this)" tabindex="-1"><i class="fas fa-times"></i></button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </tbody>
                     <tfoot class="bg-light">
                         <tr>
@@ -106,7 +137,7 @@ $customers = $data['customers'] ?? [];
         </div>
         
         <div class="card-footer d-flex gap-3 bg-light mt-0">
-            <button type="submit" class="btn btn-warning"><i class="fas fa-save"></i> تحديث أمر البيع</button>
+            <button type="submit" class="btn btn-warning" id="btnSubmit"><i class="fas fa-save"></i> تحديث أمر البيع</button>
             <a href="<?php echo URLROOT; ?>/salesOrder/index" class="btn btn-secondary">إلغاء</a>
         </div>
     </form>
@@ -127,7 +158,7 @@ $customers = $data['customers'] ?? [];
         <td><input type="number" step="0.01" min="0" name="price[]" class="form-control price-input text-center font-monospace" value="0" oninput="updateRow(this)" style="direction:ltr;"></td>
         <td class="text-center align-middle font-monospace fw-bold text-success subtotal-display" style="direction:ltr;">0.00</td>
         <td class="text-center align-middle">
-            <button type="button" class="btn-icon delete text-danger" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
+            <button type="button" class="btn-icon delete text-danger" onclick="removeRow(this)" tabindex="-1"><i class="fas fa-times"></i></button>
         </td>
     </tr>
 </template>
@@ -175,4 +206,26 @@ $customers = $data['customers'] ?? [];
             alert('يجب أن يحتوي الأمر على صنف واحد على الأقل.');
         }
     }
+
+    document.getElementById('soForm').addEventListener('submit', function(e) {
+        let rows = document.querySelectorAll('.so-row');
+        let hasProduct = false;
+        
+        // 🟢 منع الحفظ إذا كان الجدول يحتوي على أسطر فارغة 🟢
+        rows.forEach(row => {
+            let select = row.querySelector('.prod-select');
+            if (select.value !== "") hasProduct = true;
+        });
+
+        if (!hasProduct) {
+            e.preventDefault();
+            alert('خطأ: يجب اختيار منتج واحد على الأقل ليتم الحفظ!');
+            return false;
+        }
+
+        const btn = document.getElementById('btnSubmit');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحديث...';
+        btn.style.pointerEvents = 'none';
+        btn.style.opacity = '0.8';
+    });
 </script>

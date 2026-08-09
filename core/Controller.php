@@ -1,65 +1,72 @@
 <?php
-// المسار: core/Controller.php
+// core/Controller.php
 
 class Controller {
-    // تحميل الموديل
+    
     public function model($model) {
-        require_once APP_ROOT . '/app/models/' . $model . '.php';
+        require_once '../app/models/' . $model . '.php';
         return new $model();
     }
 
     public function view($view, $data = []) {
-        // استخدام APP_ROOT لضمان المسار المطلق الدقيق
-        $viewFile = APP_ROOT . '/app/views/' . $view . '.php';
-        
-        if (file_exists($viewFile)) {
-            extract($data);
-            require $viewFile;
+        if (file_exists('../app/views/' . $view . '.php')) {
+            require '../app/views/' . $view . '.php';
         } else {
-            die("الملف غير موجود: " . $viewFile);
+            die("View does not exist: " . $view);
         }
     }
 
-    public function getQuery($key, $default = '') {
-        return isset($_GET[$key]) ? htmlspecialchars(trim($_GET[$key])) : $default;
+    public function redirect($url) {
+        header('Location: ' . URLROOT . '/' . $url);
+        exit();
     }
 
     public function isPost() {
         return $_SERVER['REQUEST_METHOD'] == 'POST';
     }
 
-    public function redirect($url) {
-        header('Location: ' . URLROOT . '/' . $url);
-        exit;
+    public function requireAuth() {
+        if (!Session::isLoggedIn()) {
+            Session::setFlash('error', 'يرجى تسجيل الدخول أولاً.');
+            $this->redirect('auth/login');
+        }
+    }
+
+    // 🟢 التعديل الجذري: إعطاء الـ super_admin صلاحية مطلقة للدخول لأي شاشة 🟢
+    public function requireRole($role) {
+        $currentRole = Session::getUserRole();
+        
+        // مالك النظام يتخطى جميع الحواجز
+        if ($currentRole === 'super_admin') {
+            return; 
+        }
+        
+        if ($currentRole !== $role) {
+            Session::setFlash('error', 'عفواً، ليس لديك صلاحية كافية (مطلوب: ' . $role . ').');
+            $this->redirect('dashboard/index');
+        }
+    }
+
+    // 🟢 التعديل الجذري: إعطاء الـ super_admin صلاحية مطلقة للدخول لأي شاشة 🟢
+    public function requireAnyRole(array $roles) {
+        $currentRole = Session::getUserRole();
+        
+        // مالك النظام يتخطى جميع الحواجز
+        if ($currentRole === 'super_admin') {
+            return; 
+        }
+
+        if (!in_array($currentRole, $roles)) {
+            Session::setFlash('error', 'عفواً، ليس لديك صلاحية كافية للوصول لهذه الصفحة.');
+            $this->redirect('dashboard/index');
+        }
     }
 
     public function setFlash($type, $message) {
         Session::setFlash($type, $message);
     }
-
+    
     public function getFlash() {
         return Session::getFlash();
-    }
-
-    public function requireAuth() {
-        if (!Session::isLoggedIn()) {
-            $this->redirect('auth/login');
-        }
-    }
-
-    public function requireRole($role) {
-        $this->requireAuth();
-        if (!Session::hasRole($role)) {
-            $this->setFlash('error', 'ليس لديك صلاحية للوصول إلى هذه الصفحة.');
-            $this->redirect('dashboard/index');
-        }
-    }
-
-    public function requireAnyRole(array $roles) {
-        $this->requireAuth();
-        if (!Session::hasAnyRole($roles)) {
-            $this->setFlash('error', 'ليس لديك صلاحية للوصول إلى هذه الصفحة.');
-            $this->redirect('dashboard/index');
-        }
     }
 }

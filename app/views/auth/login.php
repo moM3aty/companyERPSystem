@@ -137,7 +137,7 @@
         /* === الجانب الترويجي === */
         .login-branding {
             flex: 0 0 400px;
-            background: linear-gradient(160deg, #0f766e 0%, #0d9488 30%, #14b8a6 60%, #2dd4bf 100%);
+            background:linear-gradient(160deg, #240f76 0%, #0d1794 30%, #4414b8 60%, #302dd4 100%);
             padding: 50px 40px;
             display: flex;
             flex-direction: column;
@@ -605,10 +605,11 @@
             <div class="geo-shape s4"></div>
             <div class="geo-shape s5"></div>
 
-            <div class="lb-icon-wrapper">
-                <i class="fas fa-cubes lb-icon"></i>
+                 <div  style="background: #fff; padding: 5px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: inline-flex; justify-content: center; align-items: center; margin-bottom: 15px;">
+
+                    <img src="<?php echo URLROOT; ?>/assets/img/logo.png" onerror="this.src='<?php echo URLROOT; ?>/public/assets/img/logo.png'" alt="ERP Pro Logo" style="width: 100px; height: 100px; object-fit: contain;">
             </div>
-            <h1 class="lb-title">ERP <span>Pro</span></h1>
+            <h1 class="lb-title">ERP</h1>
             <p class="lb-desc">نظام متكامل لإدارة موارد مؤسستك باحترافية وأمان عالٍ.</p>
 
             <div class="lb-features">
@@ -667,7 +668,6 @@
                 </button>
             </form>
 
-            <div class="divider">مؤمن بتقنية SSL</div>
 
             <div class="lf-footer">
                 <i class="fas fa-lock"></i> جميع البيانات مشفرة ومحمية

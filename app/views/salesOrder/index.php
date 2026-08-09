@@ -1,6 +1,8 @@
+### 2️⃣ تحديث شاشة القائمة (لتأكيد قراءة الحالة مهما كان شكل الكلمة):
+```php:app/views/salesOrder/index.php
 <?php
 // app/views/salesOrder/index.php
-$orders = $data['orders'] ?? [];
+$orders =$data['orders'] ?? [];
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -38,14 +40,17 @@ $orders = $data['orders'] ?? [];
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($orders as $order) : 
-                        $statusClass = match($order->status ?? 'draft') {
+                    <?php foreach ($orders as$order) : 
+                        // استخدام strtolower لضمان التطابق التام مهما كان شكل الكلمة في الداتابيز
+                        $safeStatus = strtolower(trim($order->status ?? 'draft'));
+                        
+                        $statusClass = match($safeStatus) {
                             'approved' => 'badge-success',
                             'sent' => 'badge-info',
                             'cancelled' => 'badge-danger',
                             default => 'badge-secondary'
                         };
-                        $statusLabel = match($order->status ?? 'draft') {
+                        $statusLabel = match($safeStatus) {
                             'approved' => 'معتمد',
                             'sent' => 'مُرسل',
                             'cancelled' => 'ملغي',
@@ -69,10 +74,7 @@ $orders = $data['orders'] ?? [];
                         <td class="text-center">
                             <div class="d-flex align-items-center justify-content-center gap-2">
                                 <a href="<?php echo URLROOT; ?>/salesOrder/show/<?php echo $order->id; ?>" class="btn-icon view" title="عرض وطباعة"><i class="fas fa-eye"></i></a>
-                                
-                                <!-- زر التعديل المضاف حديثاً -->
                                 <a href="<?php echo URLROOT; ?>/salesOrder/edit/<?php echo $order->id; ?>" class="btn-icon edit" title="تعديل الحالة والبيانات"><i class="fas fa-pen"></i></a>
-                                
                                 <?php if(Session::hasRole('admin') || Session::hasRole('manager')): ?>
                                 <form action="<?php echo URLROOT; ?>/salesOrder/delete/<?php echo $order->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('تأكيد حذف أمر البيع؟');">
                                     <button type="submit" class="btn-icon delete" title="حذف"><i class="fas fa-trash"></i></button>

@@ -5,67 +5,83 @@ $followups = $data['followups'] ?? [];
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h3 class="mb-0 text-dark"><i class="fas fa-phone-volume text-primary"></i> جدول المتابعات والاجتماعات</h3>
-        <p class="text-muted mt-1" style="font-size: 13px;">تذكيرات وإدارة الأنشطة الخاصة بالعملاء المحتملين.</p>
+        <h3 class="mb-0 text-dark"><i class="fas fa-calendar-check text-primary"></i> جدول متابعات العملاء</h3>
+        <p class="text-muted mt-1" style="font-size: 13px;">إدارة المواعيد، المكالمات، والاجتماعات المجدولة مع العملاء المحتملين.</p>
     </div>
     <a href="<?php echo URLROOT; ?>/followup/create" class="btn btn-primary">
-        <i class="fas fa-calendar-plus"></i> جدولة متابعة
+        <i class="fas fa-plus"></i> جدولة متابعة
     </a>
 </div>
 
+<?php 
+    $flash = Session::getFlash();
+    if ($flash): 
+?>
+    <div class="flash-msg flash-<?php echo $flash['type']; ?>">
+        <i class="fas fa-<?php echo $flash['type'] === 'success' ? 'circle-check' : 'circle-xmark'; ?>"></i>
+        <?php echo htmlspecialchars($flash['message']); ?>
+    </div>
+<?php endif; ?>
+
 <div class="card">
-    <div class="card-body" style="padding: 0;">
+    <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table mb-0">
-                <thead>
+                <thead class="bg-light">
                     <tr>
-                        <th>التاريخ والوقت</th>
+                        <th class="text-center" style="width: 50px;">النوع</th>
                         <th>العميل المحتمل</th>
-                        <th class="text-center">النوع</th>
-                        <th>الملاحظات</th>
+                        <th>الموعد المجدول</th>
+                        <th>ملاحظات</th>
+                        <th class="text-center">الحالة</th>
                         <th class="text-center">إجراءات</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if(!empty($followups)): foreach($followups as $f): 
-                        $typeIcon = match($f->type) {
-                            'call' => '<i class="fas fa-phone text-info"></i> مكالمة',
-                            'meeting' => '<i class="fas fa-handshake text-primary"></i> اجتماع',
-                            'email' => '<i class="fas fa-envelope text-accent"></i> إيميل',
-                            default => $f->type
-                        };
-                        $isPast = strtotime($f->scheduled_date) < time() && $f->status == 'pending';
-                        $rowStyle = $f->status == 'completed' ? 'opacity: 0.6; background-color: #f8fafc;' : '';
+                    <?php foreach ($followups as $f): 
+                        $icon = match($f->type) { 'call' => 'fa-phone text-success', 'meeting' => 'fa-handshake text-primary', 'email' => 'fa-envelope text-warning', default => 'fa-bell text-muted' };
+                        $isPast = strtotime($f->scheduled_at) < time() && $f->status === 'pending';
                     ?>
-                    <tr style="<?php echo $rowStyle; ?>">
-                        <td class="font-monospace fw-bold <?php echo $isPast ? 'text-danger' : 'text-dark'; ?>">
-                            <?php echo date('Y-m-d H:i', strtotime($f->scheduled_date)); ?>
-                            <?php if($isPast) echo '<br><span class="text-danger" style="font-size:10px; font-family:Cairo;">(متأخرة)</span>'; ?>
-                        </td>
+                    <tr style="<?php echo $isPast ? 'background-color: #fef2f2;' : ''; ?>">
+                        <td class="text-center fs-4"><i class="fas <?php echo $icon; ?>"></i></td>
                         <td>
-                            <div class="fw-bold text-dark"><?php echo htmlspecialchars($f->lead_name); ?></div>
-                            <div style="font-size:12px; color:var(--text-muted);"><?php echo htmlspecialchars($f->company ?? ''); ?></div>
+                            <div class="fw-bold text-dark"><?php echo htmlspecialchars($f->lead_name ?? 'محذوف'); ?></div>
+                            <div class="text-muted" style="font-size:11px;"><?php echo htmlspecialchars($f->lead_company ?? ''); ?></div>
                         </td>
-                        <td class="text-center fw-bold"><?php echo $typeIcon; ?></td>
-                        <td class="text-muted fs-6"><?php echo htmlspecialchars($f->notes); ?></td>
+                        <td class="font-monospace fw-bold <?php echo $isPast ? 'text-danger' : 'text-dark'; ?>" style="direction:ltr; text-align:right;">
+                            <?php echo date('Y-m-d h:i A', strtotime($f->scheduled_at)); ?>
+                            <?php if($isPast): ?><i class="fas fa-exclamation-circle text-danger ms-1" title="موعد متأخر"></i><?php endif; ?>
+                        </td>
+                        <td class="text-muted" style="font-size: 13px; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            <?php echo htmlspecialchars($f->notes ?? '—'); ?>
+                        </td>
                         <td class="text-center">
-                            <div class="d-flex align-items-center justify-content-center gap-2">
-                                <?php if($f->status == 'pending'): ?>
-                                    <form action="<?php echo URLROOT; ?>/followup/complete/<?php echo $f->id; ?>" method="POST" style="display:inline;">
-                                        <button type="submit" class="btn btn-success" style="padding: 4px 10px; font-size: 11px;"><i class="fas fa-check"></i> إنجاز</button>
-                                    </form>
-                                <?php else: ?>
-                                    <span class="badge badge-secondary"><i class="fas fa-check-double"></i> مكتملة</span>
+                            <?php if($f->status === 'completed'): ?>
+                                <span class="badge badge-success"><i class="fas fa-check-double"></i> تمت المتابعة</span>
+                            <?php else: ?>
+                                <span class="badge badge-warning"><i class="fas fa-clock"></i> قيد الانتظار</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center gap-2">
+                                <?php if($f->status === 'pending'): ?>
+                                <form action="<?php echo URLROOT; ?>/followup/complete/<?php echo $f->id; ?>" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn-icon view text-success" style="border-color: var(--success);" title="تحديد كـ تمت المتابعة"><i class="fas fa-check"></i></button>
+                                </form>
                                 <?php endif; ?>
                                 
-                                <form action="<?php echo URLROOT; ?>/followup/delete/<?php echo $f->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('حذف هذه المتابعة؟');">
+                                <?php if(Session::hasRole('admin')): ?>
+                                <form action="<?php echo URLROOT; ?>/followup/delete/<?php echo $f->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('تأكيد الحذف؟');">
                                     <button type="submit" class="btn-icon delete" title="حذف"><i class="fas fa-trash"></i></button>
                                 </form>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
-                    <?php endforeach; else: ?>
-                    <tr><td colspan="5" class="text-center text-muted" style="padding: 40px;">لا توجد متابعات مجدولة.</td></tr>
+                    <?php endforeach; ?>
+
+                    <?php if(empty($followups)): ?>
+                    <tr><td colspan="6" class="text-center text-muted p-5"><i class="fas fa-calendar-times fs-1 mb-3 opacity-50 d-block"></i> لا يوجد أي متابعات مجدولة.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>

@@ -5,53 +5,66 @@ class EmployeeContract extends Model {
     
     public function __construct() {
         parent::__construct();
-        // نستخدم الجدول الشامل للعقود
-        $this->table = 'contracts';
+        $this->table = 'employee_contracts';$this->autoUpgradeTable();
     }
 
-    /**
-     * جلب جميع عقود الموظفين مع بيانات الموظف
-     */
-    public function getAllContracts(): array {
+    private function autoUpgradeTable() {
+        try {
+            $this->db->query("CREATE TABLE IF NOT EXISTS `{$this->table}` (
+                `id` int(11) NOT NULL AUTO_INCREMENT,
+                PRIMARY KEY (`id`)
+            )");
+            $this->db->execute();
+        } catch (Exception $e) {}
+
+        $columns = [
+            'company_id'   => "INT DEFAULT 1",
+            'employee_id'  => "INT NOT NULL",
+            'start_date'   => "DATE NOT NULL",
+            'end_date'     => "DATE DEFAULT NULL",
+            'basic_salary' => "DECIMAL(10,2) NOT NULL DEFAULT 0.00",
+            'allowances'   => "DECIMAL(10,2) DEFAULT 0.00",
+            'status'       => "VARCHAR(50) DEFAULT 'active'",
+            'notes'        => "TEXT DEFAULT NULL",
+            'created_at'   => "DATETIME DEFAULT CURRENT_TIMESTAMP"
+        ];
+
+        foreach ($columns as $colName =>$colDef) {
+            try {
+                $this->db->query("SHOW COLUMNS FROM `{$this->table}` LIKE '{$colName}'");
+                if (empty($this->db->resultSet())) {$this->db->query("ALTER TABLE `{$this->table}` ADD `{$colName}` {$colDef}");
+                    $this->db->execute();
+                }
+            } catch (Exception $e) {}
+        }
+    }
+
+    // 🟢 تمت إزالة أنواع الإرجاع (Return Types) مثل :array و :bool لتوافق سيرفرك
+    public function getAllContracts() {
         $sql = "SELECT c.*, e.name as employee_name, e.position 
                 FROM {$this->table} c 
-                JOIN employees e ON c.party_id = e.id 
-                WHERE c.party_type = 'employee' 
-                ORDER BY c.created_at DESC";
-                
-        $this->db->query($sql);
+                JOIN employees e ON c.employee_id = e.id 
+                WHERE c.company_id = :cid 
+                ORDER BY c.id DESC";
+        $this->db->query($sql);$this->db->bind(':cid', Session::get('company_id') ?: 1);
         return $this->db->resultSet();
     }
 
-    /**
-     * إنشاء عقد موظف جديد
-     */
-    public function createContract(array $data): bool {
-        $sql = "INSERT INTO {$this->table} 
-                (contract_number, title, party_type, party_id, start_date, end_date, value, status, created_at) 
-                VALUES 
-                (:contract_number, :title, 'employee', :party_id, :start_date, :end_date, :value, :status, NOW())";
-        
+    public function createContract($data) {
+        $sql = "INSERT INTO {$this->table} (company_id, employee_id, start_date, end_date, basic_salary, allowances, status, notes) 
+                VALUES (:cid, :emp_id, :sdate, :edate, :salary, :allowances, :status, :notes)";
         $this->db->query($sql);
-        $this->db->bind(':contract_number', $data['contract_number']);
-        $this->db->bind(':title', $data['title']);
-        $this->db->bind(':party_id', $data['employee_id'], PDO::PARAM_INT);
-        $this->db->bind(':start_date', $data['start_date']);
-        $this->db->bind(':end_date', $data['end_date']);
-        $this->db->bind(':value', $data['value']);
-        $this->db->bind(':status', $data['status']);
-        
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);$this->db->bind(':emp_id', $data['employee_id']);$this->db->bind(':sdate', $data['start_date']);$this->db->bind(':edate', !empty($data['end_date']) ?$data['end_date'] : null);
+        $this->db->bind(':salary',$data['basic_salary']);
+        $this->db->bind(':allowances',$data['allowances'] ?? 0);
+        $this->db->bind(':status',$data['status'] ?? 'active');
+        $this->db->bind(':notes',$data['notes'] ?? null);
         return $this->db->execute();
     }
 
-    /**
-     * تحديث حالة العقد (مثلاً: إنهاء العقد)
-     */
-    public function updateStatus(int $id, string $status): bool {
-        $sql = "UPDATE {$this->table} SET status = :status WHERE id = :id AND party_type = 'employee'";
-        $this->db->query($sql);
-        $this->db->bind(':status', $status);
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
+    public function deleteContract($id) {
+        $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
+        $this->db->bind(':id', $id);$this->db->bind(':cid', Session::get('company_id') ?: 1);
         return $this->db->execute();
     }
 }

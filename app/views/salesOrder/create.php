@@ -10,6 +10,17 @@ $default_order_number = $data['default_order_number'] ?? 'SO-' . date('ymd') . r
         <h3 class="card-title text-white mb-0"><i class="fas fa-plus"></i> إنشاء أمر بيع جديد (Sales Order)</h3>
     </div>
     
+    <!-- 🟢 إضافة شريط إظهار الأخطاء 🟢 -->
+    <?php 
+        $flash = Session::getFlash();
+        if ($flash): 
+    ?>
+        <div class="flash-msg flash-<?php echo $flash['type']; ?>" style="margin: 20px 20px 0;">
+            <i class="fas fa-<?php echo $flash['type'] === 'success' ? 'circle-check' : 'circle-xmark'; ?>"></i>
+            <?php echo htmlspecialchars($flash['message']); ?>
+        </div>
+    <?php endif; ?>
+
     <form action="<?php echo URLROOT; ?>/salesOrder/create" method="POST" id="soForm">
         <div class="card-body">
             
@@ -66,7 +77,6 @@ $default_order_number = $data['default_order_number'] ?? 'SO-' . date('ymd') . r
                         </tr>
                     </thead>
                     <tbody id="itemsContainer">
-                        <!-- السطر الأول الافتراضي -->
                         <tr class="so-row">
                             <td>
                                 <select name="product_id[]" class="form-control prod-select" required onchange="updateRow(this)">
@@ -80,7 +90,7 @@ $default_order_number = $data['default_order_number'] ?? 'SO-' . date('ymd') . r
                             <td><input type="number" step="0.01" min="0" name="price[]" class="form-control price-input text-center font-monospace" value="0" oninput="updateRow(this)" style="direction:ltr;"></td>
                             <td class="text-center align-middle font-monospace fw-bold text-success subtotal-display" style="direction:ltr;">0.00</td>
                             <td class="text-center align-middle">
-                                <button type="button" class="btn-icon delete text-danger" onclick="removeRow(this)" tabindex="-1"><i class="fas fa-times"></i></button>
+                                <button type="button" class="btn-icon delete text-danger" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
                             </td>
                         </tr>
                     </tbody>
@@ -126,7 +136,7 @@ $default_order_number = $data['default_order_number'] ?? 'SO-' . date('ymd') . r
         <td><input type="number" step="0.01" min="0" name="price[]" class="form-control price-input text-center font-monospace" value="0" oninput="updateRow(this)" style="direction:ltr;"></td>
         <td class="text-center align-middle font-monospace fw-bold text-success subtotal-display" style="direction:ltr;">0.00</td>
         <td class="text-center align-middle">
-            <button type="button" class="btn-icon delete text-danger" onclick="removeRow(this)" tabindex="-1"><i class="fas fa-times"></i></button>
+            <button type="button" class="btn-icon delete text-danger" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
         </td>
     </tr>
 </template>
@@ -148,7 +158,6 @@ $default_order_number = $data['default_order_number'] ?? 'SO-' . date('ymd') . r
         let qtyInput = row.querySelector('.qty-input');
         let subtotalDisplay = row.querySelector('.subtotal-display');
 
-        // إذا تم تغيير المنتج، جلب سعره الافتراضي من الخاصية data-price
         if (element.classList.contains('prod-select')) {
             let option = select.options[select.selectedIndex];
             priceInput.value = option.getAttribute('data-price');
@@ -172,8 +181,7 @@ $default_order_number = $data['default_order_number'] ?? 'SO-' . date('ymd') . r
 
     function addRow() {
         const template = document.getElementById('rowTemplate');
-        const container = document.getElementById('itemsContainer');
-        container.appendChild(template.content.cloneNode(true));
+        document.getElementById('itemsContainer').appendChild(template.content.cloneNode(true));
     }
 
     function removeRow(btn) {
@@ -188,10 +196,18 @@ $default_order_number = $data['default_order_number'] ?? 'SO-' . date('ymd') . r
 
     document.getElementById('soForm').addEventListener('submit', function(e) {
         let rows = document.querySelectorAll('.so-row');
-        if (rows.length === 0) {
+        let hasProduct = false;
+        
+        // التأكد من اختيار منتج فعلي وليس الحقل الفارغ
+        rows.forEach(row => {
+            let select = row.querySelector('.prod-select');
+            if (select.value !== "") hasProduct = true;
+        });
+
+        if (!hasProduct) {
             e.preventDefault();
-            alert('يجب أن يحتوي أمر البيع على صنف واحد على الأقل.');
-            return;
+            alert('يجب اختيار منتج واحد على الأقل.');
+            return false;
         }
         
         const btn = document.getElementById('btnSubmit');
@@ -200,4 +216,3 @@ $default_order_number = $data['default_order_number'] ?? 'SO-' . date('ymd') . r
         btn.style.pointerEvents = 'none';
     });
 </script>
-```eof

@@ -1,105 +1,81 @@
 <?php
-// المسار: app/views/suppliers/index.php
-$suppliers = $data['suppliers'] ?? [];
-$totalPayables = $data['total_payables'] ?? 0;
-$totalCount = $data['total_count'] ?? 0;
+// app/views/suppliers/index.php
+$suppliers =$data['suppliers'] ?? [];
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div class="search-box d-flex gap-2">
-        <form action="<?php echo URLROOT; ?>/supplier/index" method="GET" class="d-flex gap-2 align-items-center">
-            <input type="text" name="search" value="<?php echo htmlspecialchars($data['search'] ?? ''); ?>" class="form-control" placeholder="ابحث عن مورد..." style="width: 250px;">
-            <select name="filter" class="form-control" style="width: auto;">
-                <option value="all" <?php echo ($data['filter'] ?? '') === 'all' ? 'selected' : ''; ?>>الكل</option>
-                <option value="company" <?php echo ($data['filter'] ?? '') === 'company' ? 'selected' : ''; ?>>شركات</option>
-                <option value="individual" <?php echo ($data['filter'] ?? '') === 'individual' ? 'selected' : ''; ?>>أفراد</option>
-            </select>
-            <button type="submit" class="btn btn-secondary"><i class="fas fa-search"></i></button>
-        </form>
+    <div>
+        <h3 class="mb-0 text-dark"><i class="fas fa-truck text-primary"></i> دليل الموردين</h3>
+        <p class="text-muted mt-1" style="font-size: 13px;">إدارة بيانات الشركات والأفراد الذين يتم شراء البضائع والخدمات منهم.</p>
     </div>
     <a href="<?php echo URLROOT; ?>/supplier/create" class="btn btn-primary">
         <i class="fas fa-plus"></i> إضافة مورد جديد
     </a>
 </div>
 
-<div class="form-grid mb-4">
-    <div class="card mb-0">
-        <div class="card-body d-flex align-items-center gap-3">
-            <div style="width: 50px; height: 50px; background: var(--info-light); color: var(--info); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 24px;">
-                <i class="fas fa-truck-field"></i>
-            </div>
-            <div>
-                <h4 style="margin: 0; font-size: 24px; font-weight: 800;"><?php echo $totalCount; ?></h4>
-                <span class="text-muted" style="font-size: 12px; font-weight: 700;">إجمالي الموردين</span>
-            </div>
-        </div>
+<?php 
+    $flash = Session::getFlash();
+    if ($flash): 
+?>
+    <div class="flash-msg flash-<?php echo $flash['type']; ?>">
+        <i class="fas fa-<?php echo $flash['type'] === 'success' ? 'circle-check' : 'circle-xmark'; ?>"></i>
+        <?php echo htmlspecialchars($flash['message']); ?>
     </div>
-    <div class="card mb-0">
-        <div class="card-body d-flex align-items-center gap-3">
-            <div style="width: 50px; height: 50px; background: var(--warning-light); color: var(--accent); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 24px;">
-                <i class="fas fa-file-invoice-dollar"></i>
-            </div>
-            <div>
-                <h4 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--accent);" class="font-monospace"><?php echo number_format($totalPayables, 2); ?></h4>
-                <span class="text-muted" style="font-size: 12px; font-weight: 700;">إجمالي الديون (الدائنون)</span>
-            </div>
-        </div>
-    </div>
-</div>
+<?php endif; ?>
 
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-list"></i> سجل الموردين المعتمدين</h3>
-    </div>
-    <div class="card-body" style="padding: 0;">
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table">
-                <thead>
+            <table class="table mb-0 table-hover">
+                <thead class="bg-light">
                     <tr>
-                        <th>رقم المورد</th>
-                        <th>اسم المورد / الشركة</th>
-                        <th>النوع</th>
-                        <th>الهاتف / التواصل</th>
-                        <th>الرصيد الدائن</th>
+                        <th style="width: 25%;">اسم المورد</th>
+                        <th>التواصل</th>
+                        <th>الرقم الضريبي</th>
+                        <th class="text-left">الرصيد الافتتاحي (ر.س)</th>
                         <th class="text-center">إجراءات</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if(!empty($suppliers)): foreach($suppliers as $s): ?>
+                    <?php foreach ($suppliers as$sup) : ?>
                     <tr>
-                        <td class="text-muted font-monospace">#<?php echo $s->id; ?></td>
                         <td>
-                            <div style="font-weight: 700; color: var(--text-dark);"><?php echo htmlspecialchars($s->name); ?></div>
-                            <div style="font-size: 12px; color: var(--text-muted);"><i class="fas fa-user-tie"></i> <?php echo htmlspecialchars($s->contact_person ?? '—'); ?></div>
+                            <div class="fw-bold text-dark"><i class="fas fa-building text-muted me-1"></i> <?php echo htmlspecialchars($sup->name); ?></div>
+                            <div class="text-muted mt-1" style="font-size:11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">
+                                <i class="fas fa-location-dot"></i> <?php echo htmlspecialchars($sup->address ?? 'بدون عنوان'); ?>
+                            </div>
                         </td>
                         <td>
-                            <span class="badge badge-<?php echo $s->type === 'company' ? 'primary' : 'info'; ?>">
-                                <i class="fas fa-<?php echo $s->type === 'company' ? 'building' : 'user'; ?>"></i> 
-                                <?php echo $s->type === 'company' ? 'شركة' : 'فرد'; ?>
-                            </span>
+                            <div class="text-muted font-monospace" style="font-size: 12px; direction: ltr; text-align: right;"><i class="fas fa-phone"></i> <?php echo htmlspecialchars($sup->phone ?? '—'); ?></div>
+                            <div class="text-muted font-monospace mt-1" style="font-size: 11px; direction: ltr; text-align: right;"><i class="fas fa-envelope"></i> <?php echo htmlspecialchars($sup->email ?? '—'); ?></div>
                         </td>
                         <td>
-                            <div class="font-monospace text-right" style="direction: ltr; display: inline-block;"><?php echo htmlspecialchars($s->phone ?? '—'); ?></div>
+                            <span class="badge badge-secondary font-monospace"><?php echo htmlspecialchars($sup->tax_number ?? 'غير مسجل'); ?></span>
                         </td>
-                        <td>
-                            <?php if ($s->balance > 0): ?>
-                                <span class="badge badge-warning font-monospace text-dark"><?php echo number_format($s->balance, 2); ?></span>
-                            <?php else: ?>
-                                <span class="badge badge-success font-monospace">0.00</span>
-                            <?php endif; ?>
+                        <td class="font-monospace fw-bold text-primary text-left" style="direction:ltr;">
+                            <?php echo number_format($sup->balance, 2); ?>
                         </td>
                         <td class="text-center">
-                            <a href="<?php echo URLROOT; ?>/supplier/edit/<?php echo $s->id; ?>" class="btn-icon edit" title="تعديل">
-                                <i class="fas fa-pen"></i>
-                            </a>
-                            <form action="<?php echo URLROOT; ?>/supplier/delete/<?php echo $s->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('تأكيد حذف المورد؟');">
-                                <button type="submit" class="btn-icon delete" title="حذف"><i class="fas fa-trash"></i></button>
-                            </form>
+                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                <a href="<?php echo URLROOT; ?>/supplier/edit/<?php echo $sup->id; ?>" class="btn-icon edit" title="تعديل البيانات"><i class="fas fa-pen"></i></a>
+                                
+                                <!-- 🟢 زر الحذف 🟢 -->
+                                <?php if(Session::hasRole('admin') || Session::hasRole('super_admin') || Session::hasRole('manager')): ?>
+                                <form action="<?php echo URLROOT; ?>/supplier/delete/<?php echo $sup->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('تأكيد الحذف نهائياً؟');">
+                                    <button type="submit" class="btn-icon delete" title="حذف المورد"><i class="fas fa-trash"></i></button>
+                                </form>
+                                <?php endif; ?>
+                            </div>
                         </td>
                     </tr>
-                    <?php endforeach; else: ?>
+                    <?php endforeach; ?>
+
+                    <?php if (empty($suppliers)) : ?>
                     <tr>
-                        <td colspan="6" class="text-center" style="padding: 40px;">لا يوجد موردين مطابقين للبحث.</td>
+                        <td colspan="5" class="text-center text-muted p-5">
+                            <i class="fas fa-truck-ramp-box fs-1 mb-3 opacity-50 d-block"></i>
+                            لا يوجد موردين مسجلين في النظام.
+                        </td>
                     </tr>
                     <?php endif; ?>
                 </tbody>

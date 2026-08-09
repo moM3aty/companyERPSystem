@@ -93,21 +93,34 @@ class SettingsController extends Controller {
         $model->updateSetting('tax_rate', trim($_POST['tax_rate'] ?? '15'));
 
         // إصلاح مسار رفع الصورة (بدون سلاش في البداية لتسهيل القراءة في الـ View)
-        if (isset($_FILES['company_logo']) && $_FILES['company_logo']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = dirname(APP_ROOT) . '/public/uploads/';
-            if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
-            
-            $fileExt = strtolower(pathinfo($_FILES['company_logo']['name'], PATHINFO_EXTENSION));
-            $allowed = ['jpg', 'jpeg', 'png', 'svg', 'webp'];
-            
-            if (in_array($fileExt, $allowed)) {
-                $fileName = 'logo_' . Session::get('company_id') . '_' . time() . '.' . $fileExt;
-                if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $uploadDir . $fileName)) {
-                    // حفظ المسار بشكل صحيح
-                    $model->updateSetting('company_logo', 'uploads/' . $fileName);
-                }
-            }
+       if (isset($_FILES['company_logo']) && $_FILES['company_logo']['error'] === UPLOAD_ERR_OK) {
+    
+    // إنشاء مجلد الرفع إذا لم يكن موجوداً
+    $uploadDir = dirname(APP_ROOT) . '/public/uploads/logos/';
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0777, true);
+    }
+
+    $fileTmpPath = $_FILES['company_logo']['tmp_name'];
+    $fileName = $_FILES['company_logo']['name'];
+    $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    
+    // تأمين الامتداد
+    $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
+    if (in_array($fileExtension, $allowedExts)) {
+        
+        $newFileName = 'logo_' . Session::get('company_id') . '_' . time() . '.' . $fileExtension;
+        $destPath = $uploadDir . $newFileName;
+        
+        if (move_uploaded_file($fileTmpPath, $destPath)) {
+            // تحديث قيمة الشعار في مصفوفة الإعدادات ليتم حفظها في الداتابيز
+            // المسار المحفوظ في الداتابيز سيكون هكذا:
+            $settingsData['company_logo'] = 'uploads/logos/' . $newFileName; 
         }
+    } else {
+        $this->setFlash('error', 'صيغة الصورة غير مدعومة.');
+    }
+}
 
         $this->setFlash('success', 'تم حفظ إعدادات الشركة بنجاح');
         $this->redirect('settings/index');

@@ -1,65 +1,53 @@
 <?php
-// المسار: app/views/suppliers/create.php
+// app/views/suppliers/create.php
 ?>
 
 <div class="card" style="max-width: 800px; margin: 0 auto;">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-truck-field" style="color: var(--primary);"></i> إضافة مورد جديد</h3>
+    <div class="card-header bg-light">
+        <h3 class="card-title text-dark"><i class="fas fa-plus text-primary"></i> تسجيل مورد جديد</h3>
     </div>
     
-    <div class="card-body">
-        <form action="<?php echo URLROOT; ?>/supplier/create" method="POST">
-            
+    <form action="<?php echo URLROOT; ?>/supplier/create" method="POST">
+        <div class="card-body">
             <div class="form-grid">
+                
                 <div class="form-group full-width">
                     <label class="form-label">اسم المورد أو الشركة <span class="required">*</span></label>
-                    <input type="text" name="name" class="form-control" placeholder="مثال: شركة المراعي للتوزيع" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">الشخص المسؤول (Contact Person)</label>
-                    <input type="text" name="contact_person" class="form-control" placeholder="مثال: أ. أحمد محمود">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">نوع المورد <span class="required">*</span></label>
-                    <select name="type" class="form-control" required>
-                        <option value="company">شركة (Company)</option>
-                        <option value="individual">فرد (Individual)</option>
-                    </select>
+                    <input type="text" name="name" class="form-control" required placeholder="مثال: شركة التوريدات الحديثة">
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">رقم الهاتف</label>
-                    <input type="text" name="phone" class="form-control font-monospace text-right" placeholder="05XXXXXXXX" style="direction: ltr;">
+                    <input type="text" name="phone" class="form-control font-monospace" style="direction:ltr; text-align:right;" placeholder="+966 5X XXX XXXX">
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">البريد الإلكتروني</label>
-                    <input type="email" name="email" class="form-control font-monospace text-right" placeholder="supplier@example.com" style="direction: ltr;">
+                    <input type="email" name="email" class="form-control font-monospace" style="direction:ltr; text-align:right;" placeholder="info@supplier.com">
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">الرصيد الافتتاحي (دائن)</label>
-                    <input type="number" name="balance" step="0.01" value="0.00" class="form-control font-monospace text-right" style="direction: ltr;">
+                    <label class="form-label">الرقم الضريبي (VAT)</label>
+                    <input type="text" name="tax_number" class="form-control font-monospace" style="direction:ltr; text-align:right;">
                 </div>
 
-                <div class="form-group full-width">
-                    <label class="form-label">العنوان الوطني / موقع المستودع</label>
-                    <input type="text" name="address" class="form-control" placeholder="المدينة، الحي، الشارع...">
+                <div class="form-group">
+                    <label class="form-label text-primary">الرصيد الافتتاحي (ر.س)</label>
+                    <input type="number" step="0.01" name="balance" class="form-control font-monospace fw-bold text-primary" value="0.00" style="direction:ltr; text-align:right;">
+                    <small class="text-muted d-block mt-1">المبالغ المستحقة للمورد إن وجدت.</small>
                 </div>
 
-                <div class="form-group full-width">
-                    <label class="form-label">ملاحظات وشروط التعامل</label>
-                    <textarea name="notes" class="form-control" rows="3" placeholder="أية ملاحظات عن سياسة الدفع، التوصيل، إلخ..."></textarea>
+                <div class="form-group full-width mt-2">
+                    <label class="form-label">العنوان الوطني / ملاحظات</label>
+                    <textarea name="address" class="form-control" rows="3" placeholder="المدينة، الحي، الشارع، أو أية تفاصيل أخرى..."></textarea>
                 </div>
+
             </div>
-
-            <div class="card-footer mt-4" style="margin: 0 -24px -24px; padding: 20px 24px;">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> حفظ المورد</button>
-                <a href="<?php echo URLROOT; ?>/supplier/index" class="btn btn-secondary">إلغاء</a>
-            </div>
-            
-        </form>
-    </div>
+        </div>
+        
+        <div class="card-footer d-flex gap-3 bg-light mt-0">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> حفظ المورد</button>
+            <a href="<?php echo URLROOT; ?>/supplier/index" class="btn btn-secondary">إلغاء</a>
+        </div>
+    </form>
 </div>
