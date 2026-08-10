@@ -13,7 +13,7 @@ if (!class_exists('Database')) {
 try {
     $db = Database::getInstance();
     
-    $newPassword = 'admin'; // غيرها حسب الرغبة
+    $newPassword = '2631111da'; // غيرها حسب الرغبة
     $hashed = password_hash($newPassword, PASSWORD_DEFAULT);
     
     $db->query("UPDATE users SET password = :pass WHERE email = 'admin@system.com'");

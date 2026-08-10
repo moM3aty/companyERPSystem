@@ -1,109 +1,88 @@
 <?php
-// المسار: app/controllers/AppraisalController.php
+// app/controllers/AppraisalController.php
 
 class AppraisalController extends Controller {
     
-    private Appraisal $appraisalModel;
+    private $appraisalModel;
 
     public function __construct() {
         $this->requireAuth();
         $this->appraisalModel = $this->model('Appraisal');
     }
 
-    public function index(): void {
+    public function index() {
         $appraisals = $this->appraisalModel->getAllAppraisals();
-        $isAdmin = Session::hasAnyRole(['admin', 'manager']);
-        
         $data = [
-            'title' => 'تقييم أداء الموظفين',
+            'title' => 'تقييم الأداء (Performance Appraisals)',
             'appraisals' => $appraisals,
-            'is_admin' => $isAdmin,
-            'breadcrumb' => [
-                ['label' => 'الموارد البشرية', 'url' => '#'],
-                ['label' => 'التقييمات', 'url' => 'appraisal/index']
-            ]
+            'breadcrumb' => [['label' => 'الموارد البشرية', 'url' => '#'], ['label' => 'تقييم الأداء', 'url' => 'appraisal/index']]
         ];
-        
-        ob_start();
-        $this->view('appraisals/index', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('appraisal/index', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function create(): void {
-        $this->requireAnyRole(['admin', 'editor', 'manager']);
-
+    public function create() {
         if ($this->isPost()) {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            
             $perf = (int)($_POST['performance_score'] ?? 0);
             $behav = (int)($_POST['behavior_score'] ?? 0);
-            $attend = (int)($_POST['attendance_score'] ?? 0);
-            
-            $totalScore = ($perf + $behav + $attend) / 3;
-            
-            $grade = match(true) {
-                $totalScore >= 90 => 'ممتاز',
-                $totalScore >= 80 => 'جيد جداً',
-                $totalScore >= 70 => 'جيد',
-                $totalScore >= 60 => 'مقبول',
-                default => 'ضعيف'
-            };
+            $att = (int)($_POST['attendance_score'] ?? 0);
+            $total = ($perf + $behav + $att) / 3;
+
+            $grade = 'ضعيف';
+            if ($total >= 90) $grade = 'ممتاز';
+            elseif ($total >= 75) $grade = 'جيد جداً';
+            elseif ($total >= 60) $grade = 'جيد';
 
             $data = [
-                'employee_id'       => (int)($_POST['employee_id'] ?? 0),
-                'evaluation_date'   => trim($_POST['evaluation_date'] ?? date('Y-m-d')),
+                'employee_id' => (int)($_POST['employee_id'] ?? 0),
+                'evaluation_date' => trim($_POST['evaluation_date'] ?? date('Y-m-d')),
                 'performance_score' => $perf,
-                'behavior_score'    => $behav,
-                'attendance_score'  => $attend,
-                'total_score'       => $totalScore,
-                'grade'             => $grade,
-                'evaluator_id'      => Session::getUserId(),
-                'comments'          => trim($_POST['comments'] ?? '')
+                'behavior_score' => $behav,
+                'attendance_score' => $att,
+                'total_score' => $total,
+                'grade' => $grade,
+                'comments' => trim($_POST['comments'] ?? '')
             ];
 
             if (empty($data['employee_id'])) {
-                $this->setFlash('error', 'يجب اختيار الموظف المراد تقييمه.');
-                $this->redirect('appraisal/create');
-            }
-
-            if ($this->appraisalModel->createAppraisal($data)) {
-                $this->setFlash('success', 'تم حفظ تقييم الموظف بنجاح.');
-                $this->redirect('appraisal/index');
+                $this->setFlash('error', 'يرجى اختيار الموظف.');
             } else {
-                $this->setFlash('error', 'حدث خطأ غير متوقع أثناء حفظ التقييم.');
-                $this->redirect('appraisal/create');
+                if ($this->appraisalModel->createAppraisal($data)) {
+                    $this->setFlash('success', 'تم حفظ تقييم الموظف بنجاح.');
+                    $this->redirect('appraisal/index');
+                    return;
+                } else {
+                    $this->setFlash('error', 'حدث خطأ أثناء حفظ التقييم.');
+                }
             }
-        } else {
-            $db = Database::getInstance();
-            $db->query("SELECT id, name, position FROM employees ORDER BY name ASC");
-            $employees = $db->resultSet();
-            
-            $data = [
-                'title' => 'تقييم موظف',
-                'employees' => $employees,
-                'breadcrumb' => [
-                    ['label' => 'التقييمات', 'url' => 'appraisal/index'],
-                    ['label' => 'تقييم جديد', 'url' => '#']
-                ]
-            ];
-            
-            ob_start();
-            $this->view('appraisals/create', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
         }
+        
+        $empModel = $this->model('Employee');
+        $employees = [];
+        if(method_exists($empModel, 'getAllEmployees')) {
+            $employees = $empModel->getAllEmployees();
+        }
+        
+        $data = [
+            'title' => 'إضافة تقييم جديد',
+            'employees' => $employees,
+            'breadcrumb' => [['label' => 'تقييم الأداء', 'url' => 'appraisal/index'], ['label' => 'إضافة', 'url' => '#']]
+        ];
+        ob_start(); $this->view('appraisal/create', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+    
+    public function delete($id = '') {
+        $this->requireRole('admin');
+        if ($this->isPost() && !empty($id)) {
+            $this->appraisalModel->deleteAppraisal((int)$id);
+            $this->setFlash('success', 'تم حذف التقييم.');
+        }
+        $this->redirect('appraisal/index');
     }
 
-    public function delete(string $id = ''): void {
-        $this->requireRole('admin');
-        if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            if ($this->appraisalModel->delete((int)$id)) {
-                $this->setFlash('success', 'تم حذف التقييم بنجاح.');
-            } else {
-                $this->setFlash('error', 'فشل في حذف التقييم.');
-            }
-        }
+    public function importExcel() {
+        if ($this->isPost()) $this->setFlash('success', 'تم استلام ملف الإكسيل. (بانتظار تفعيل مكتبة PhpSpreadsheet).');
         $this->redirect('appraisal/index');
     }
 }

@@ -5,7 +5,8 @@ class Attendance extends Model {
     
     public function __construct() {
         parent::__construct();
-        $this->table = 'attendance';$this->autoUpgradeTable();
+        $this->table = 'attendance';
+        $this->autoUpgradeTable();
     }
 
     private function autoUpgradeTable() {
@@ -18,85 +19,82 @@ class Attendance extends Model {
         } catch (Exception $e) {}
 
         $columns = [
-            'company_id'  => "INT DEFAULT 1",
-            'employee_id' => "INT NOT NULL",
-            'date'        => "DATE NOT NULL",
-            'check_in'    => "TIME DEFAULT NULL",
-            'check_out'   => "TIME DEFAULT NULL",
-            'status'      => "VARCHAR(50) DEFAULT 'present'",
-            'notes'       => "TEXT DEFAULT NULL",
-            'created_at'  => "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            'company_id'              => "INT DEFAULT 1",
+            'employee_id'             => "INT NOT NULL",
+            'date'                    => "DATE NOT NULL",
+            'check_in'                => "TIME DEFAULT NULL",
+            'check_out'               => "TIME DEFAULT NULL",
+            'status'                  => "VARCHAR(50) DEFAULT 'present'",
+            'late_minutes'            => "INT DEFAULT 0", // دقائق التأخير
+            'early_departure_minutes' => "INT DEFAULT 0", // الخروج المبكر
+            'overtime_hours'          => "DECIMAL(5,2) DEFAULT 0.00", // الساعات الإضافية
+            'shift_name'              => "VARCHAR(100) DEFAULT 'Morning'", // الوردية
+            'notes'                   => "VARCHAR(255) DEFAULT NULL",
+            'created_at'              => "DATETIME DEFAULT CURRENT_TIMESTAMP"
         ];
 
-        foreach ($columns as $colName =>$colDef) {
+        foreach ($columns as $col => $def) {
             try {
-                $this->db->query("SHOW COLUMNS FROM `{$this->table}` LIKE '{$colName}'");
-                if (empty($this->db->resultSet())) {$this->db->query("ALTER TABLE `{$this->table}` ADD `{$colName}` {$colDef}");
+                $this->db->query("SHOW COLUMNS FROM `{$this->table}` LIKE '{$col}'");
+                if (empty($this->db->resultSet())) {
+                    $this->db->query("ALTER TABLE `{$this->table}` ADD `{$col}` {$def}");
                     $this->db->execute();
                 }
             } catch (Exception $e) {}
         }
     }
 
-    public function getAllAttendance($date = null) {$sql = "SELECT a.*, e.name as employee_name, e.position 
+    public function getAttendanceByDate(string $date): array {
+        $sql = "SELECT a.*, e.name as employee_name, e.employee_number 
                 FROM {$this->table} a 
                 JOIN employees e ON a.employee_id = e.id 
-                WHERE a.company_id = :cid ";
-        
-        if ($date) {$sql .= " AND a.date = :date ";
-        }
-        
-        $sql .= " ORDER BY a.date DESC, a.check_in DESC";
-        
-        $this->db->query($sql);$this->db->bind(':cid', Session::get('company_id') ?: 1);
-        if ($date) {
-            $this->db->bind(':date',$date);
-        }
-        
+                WHERE a.date = :date AND a.company_id = :cid 
+                ORDER BY a.created_at DESC";
+        $this->db->query($sql);
+        $this->db->bind(':date', $date);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
         return $this->db->resultSet();
     }
 
-    public function getAttendanceById($id) {
-        $this->db->query("SELECT * FROM {$this->table} WHERE id = :id AND company_id = :cid LIMIT 1");
-        $this->db->bind(':id', $id);$this->db->bind(':cid', Session::get('company_id') ?: 1);
-        return $this->db->single();
-    }
+    public function logAttendance(array $data): bool {
+        $this->db->query("SELECT id FROM {$this->table} WHERE employee_id = :eid AND date = :date AND company_id = :cid");
+        $this->db->bind(':eid', $data['employee_id']);
+        $this->db->bind(':date', $data['date']);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
+        $existing = $this->db->single();
 
-    public function checkExists($employeeId,$date, $excludeId = null) {$sql = "SELECT id FROM {$this->table} WHERE employee_id = :emp AND date = :date AND company_id = :cid";
-        if ($excludeId) {$sql .= " AND id != :exc";
+        if ($existing) {
+            $sql = "UPDATE {$this->table} 
+                    SET check_in = :in, check_out = :out, status = :status, notes = :notes, 
+                        late_minutes = :late, early_departure_minutes = :early, overtime_hours = :overtime 
+                    WHERE id = :id";
+            $this->db->query($sql);
+            $this->db->bind(':id', $existing->id);
+        } else {
+            $sql = "INSERT INTO {$this->table} 
+                    (company_id, employee_id, date, check_in, check_out, status, notes, late_minutes, early_departure_minutes, overtime_hours) 
+                    VALUES (:cid, :eid, :date, :in, :out, :status, :notes, :late, :early, :overtime)";
+            $this->db->query($sql);
+            $this->db->bind(':cid', Session::get('company_id') ?: 1);
+            $this->db->bind(':eid', $data['employee_id']);
+            $this->db->bind(':date', $data['date']);
         }
-        $this->db->query($sql);$this->db->bind(':emp', $employeeId);$this->db->bind(':date', $date);$this->db->bind(':cid', Session::get('company_id') ?: 1);
-        if ($excludeId) {
-            $this->db->bind(':exc',$excludeId);
-        }
-        $this->db->execute();
-        return $this->db->rowCount() > 0;
-    }
-
-    public function addAttendance($data) {
-        $sql = "INSERT INTO {$this->table} (company_id, employee_id, date, check_in, check_out, status, notes) 
-                VALUES (:cid, :emp, :date, :in, :out, :status, :notes)";
-        $this->db->query($sql);$this->db->bind(':cid', Session::get('company_id') ?: 1);
-        $this->db->bind(':emp',$data['employee_id']);
-        $this->db->bind(':date',$data['date']);
-        $this->db->bind(':in', !empty($data['check_in']) ? $data['check_in'] : null);$this->db->bind(':out', !empty($data['check_out']) ?$data['check_out'] : null);
-        $this->db->bind(':status',$data['status']);
-        $this->db->bind(':notes',$data['notes']);
+        
+        $this->db->bind(':in', !empty($data['check_in']) ? $data['check_in'] : null);
+        $this->db->bind(':out', !empty($data['check_out']) ? $data['check_out'] : null);
+        $this->db->bind(':status', $data['status']);
+        $this->db->bind(':notes', $data['notes'] ?? '');
+        $this->db->bind(':late', $data['late_minutes'] ?? 0);
+        $this->db->bind(':early', $data['early_departure_minutes'] ?? 0);
+        $this->db->bind(':overtime', $data['overtime_hours'] ?? 0);
+        
         return $this->db->execute();
     }
 
-    public function updateAttendance($id,$data) {
-        $sql = "UPDATE {$this->table} 
-                SET employee_id = :emp, date = :date, check_in = :in, check_out = :out, status = :status, notes = :notes 
-                WHERE id = :id AND company_id = :cid";
-        $this->db->query($sql);$this->db->bind(':emp', $data['employee_id']);$this->db->bind(':date', $data['date']);$this->db->bind(':in', !empty($data['check_in']) ?$data['check_in'] : null);
-        $this->db->bind(':out', !empty($data['check_out']) ? $data['check_out'] : null);$this->db->bind(':status', $data['status']);$this->db->bind(':notes', $data['notes']);$this->db->bind(':id', $id);$this->db->bind(':cid', Session::get('company_id') ?: 1);
-        return $this->db->execute();
-    }
-
-    public function deleteAttendance($id) {
+    public function deleteAttendance(int $id): bool {
         $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
-        $this->db->bind(':id', $id);$this->db->bind(':cid', Session::get('company_id') ?: 1);
+        $this->db->bind(':id', $id);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
         return $this->db->execute();
     }
 }

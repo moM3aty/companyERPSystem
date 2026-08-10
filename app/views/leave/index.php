@@ -1,99 +1,94 @@
 <?php
 // app/views/leave/index.php
-$requests = $requests ?? ($data['requests'] ?? []);
-$isAdmin = $isAdmin ?? ($data['is_admin'] ?? false);
+$leaves = $data['leaves'] ?? [];
+$userRole = Session::getUserRole();
+$canApprove = in_array($userRole, ['admin', 'manager', 'super_admin']);
 ?>
 
-<div class="d-flex justify-content-between align-items-center" style="margin-bottom: 24px;">
+<div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h3 class="card-title mb-0"><i class="fas fa-calendar-minus text-primary"></i> إدارة طلبات الإجازات</h3>
-        <p class="text-muted mt-0">متابعة واعتماد إجازات الموظفين بمختلف أنواعها.</p>
+        <h3 class="mb-0 text-dark"><i class="fas fa-calendar-minus text-primary"></i> طلبات الإجازات</h3>
+        <p class="text-muted mt-1" style="font-size: 13px;">متابعة وإدارة طلبات الإجازات للموظفين.</p>
     </div>
-    <div class="d-flex gap-2 align-items-center">
-        <a href="<?php echo URLROOT; ?>/leave/create" class="btn btn-primary"><i class="fas fa-plus"></i> تقديم طلب إجازة</a>
-    </div>
+    <a href="<?php echo URLROOT; ?>/leave/create" class="btn btn-primary">
+        <i class="fas fa-plus"></i> تقديم طلب إجازة
+    </a>
 </div>
+
+<?php 
+    $flash = Session::getFlash();
+    if ($flash): 
+?>
+    <div class="flash-msg flash-<?php echo $flash['type']; ?>">
+        <i class="fas fa-<?php echo $flash['type'] === 'success' ? 'circle-check' : 'circle-xmark'; ?>"></i>
+        <?php echo htmlspecialchars($flash['message']); ?>
+    </div>
+<?php endif; ?>
 
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table mb-0">
-                <thead>
+                <thead class="bg-light">
                     <tr>
                         <th>الموظف</th>
                         <th>نوع الإجازة</th>
-                        <th>المدة وتاريخها</th>
+                        <th>الفترة (من - إلى)</th>
+                        <th class="text-center">المدة (أيام)</th>
                         <th class="text-center">الحالة</th>
-                        <th class="text-center">الاعتماد والإجراءات</th>
+                        <th class="text-center">إجراءات</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if(!empty($requests)): foreach ($requests as $req) : 
-                        $statusClass = match($req->status) {
-                            'pending' => 'badge-warning',
+                    <?php foreach ($leaves as $l) : 
+                        $statusClass = match($l->status) {
                             'approved' => 'badge-success',
                             'rejected' => 'badge-danger',
-                            default => 'badge-secondary'
+                            default => 'badge-warning'
                         };
-                        $statusLabel = match($req->status) {
-                            'pending' => '<i class="fas fa-clock"></i> قيد المراجعة',
-                            'approved' => '<i class="fas fa-check-double"></i> تمت الموافقة',
-                            'rejected' => '<i class="fas fa-xmark"></i> مرفوض',
-                            default => $req->status
+                        $statusLabel = match($l->status) {
+                            'approved' => 'مقبول',
+                            'rejected' => 'مرفوض',
+                            default => 'قيد الانتظار'
                         };
                         
-                        // حساب الأيام
-                        $start = new DateTime($req->start_date);
-                        $end = new DateTime($req->end_date);
-                        $diff = $start->diff($end)->days + 1; // +1 لحساب اليوم نفسه
+                        $typeLabel = match($l->leave_type) {
+                            'annual' => 'سنوية', 'sick' => 'مرضية', 'unpaid' => 'بدون راتب', 'maternity' => 'أمومة', default => $l->leave_type
+                        };
                     ?>
                     <tr>
-                        <td>
-                            <div class="fw-bold text-dark"><?php echo htmlspecialchars($req->employee_name); ?></div>
-                            <div class="text-muted" style="font-size:11px;"><?php echo htmlspecialchars(mb_substr($req->reason, 0, 30)) . '...'; ?></div>
+                        <td class="fw-bold text-dark"><i class="fas fa-user-circle text-muted"></i> <?php echo htmlspecialchars($l->employee_name ?? 'أنا'); ?></td>
+                        <td><span class="badge badge-secondary"><?php echo $typeLabel; ?></span></td>
+                        <td class="text-muted font-monospace fs-6">
+                            <?php echo $l->start_date; ?> <i class="fas fa-arrow-left mx-1" style="font-size:10px;"></i> <?php echo $l->end_date; ?>
                         </td>
-                        <td><span class="badge badge-info"><i class="fas fa-tag"></i> <?php echo htmlspecialchars($req->leave_type_name); ?></span></td>
-                        <td>
-                            <div class="font-monospace text-dark fw-bold"><?php echo $diff; ?> أيام</div>
-                            <div class="text-muted" style="font-size:11px;"><?php echo date('M d', strtotime($req->start_date)); ?> إلى <?php echo date('M d', strtotime($req->end_date)); ?></div>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span>
-                            <?php if ($req->approved_by_name): ?>
-                                <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">بواسطة: <?php echo htmlspecialchars($req->approved_by_name); ?></div>
-                            <?php endif; ?>
-                        </td>
+                        <td class="text-center font-monospace fw-bold text-primary"><?php echo $l->days; ?></td>
+                        <td class="text-center"><span class="badge <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span></td>
                         <td class="text-center">
                             <div class="d-flex align-items-center justify-content-center gap-2">
-                                <?php if ($req->status === 'pending') : ?>
-                                    
-                                    <?php if ($isAdmin) : ?>
-                                        <form method="POST" action="<?php echo URLROOT; ?>/leave/approve/<?php echo $req->id; ?>" style="display:inline;" onsubmit="return confirm('تأكيد الموافقة على الإجازة؟');">
-                                            <button type="submit" class="btn-icon view" title="موافقة"><i class="fas fa-check text-success"></i></button>
-                                        </form>
-                                        <form method="POST" action="<?php echo URLROOT; ?>/leave/reject/<?php echo $req->id; ?>" style="display:inline;" onsubmit="return confirm('تأكيد رفض الإجازة؟');">
-                                            <button type="submit" class="btn-icon delete" title="رفض"><i class="fas fa-times text-danger"></i></button>
-                                        </form>
-                                    <?php endif; ?>
-
-                                    <!-- التعديل والحذف متاح لصاحب الطلب أو الإدارة مادام معلقاً -->
-                                    <a href="<?php echo URLROOT; ?>/leave/edit/<?php echo $req->id; ?>" class="btn-icon edit" title="تعديل"><i class="fas fa-pen"></i></a>
-                                    <form action="<?php echo URLROOT; ?>/leave/delete/<?php echo $req->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('هل أنت متأكد من إلغاء وحذف الطلب؟');">
-                                        <button type="submit" class="btn-icon delete" title="حذف"><i class="fas fa-trash"></i></button>
+                                <?php if($canApprove && $l->status === 'pending'): ?>
+                                    <form action="<?php echo URLROOT; ?>/leave/updateStatus/<?php echo $l->id; ?>" method="POST" style="display:inline;">
+                                        <input type="hidden" name="status" value="approved">
+                                        <button type="submit" class="btn-icon view text-success" title="موافقة"><i class="fas fa-check"></i></button>
                                     </form>
-                                <?php else: ?>
-                                    <span class="text-muted" style="font-size:12px;"><i class="fas fa-lock"></i> مقفل</span>
+                                    <form action="<?php echo URLROOT; ?>/leave/updateStatus/<?php echo $l->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('تأكيد رفض الإجازة؟');">
+                                        <input type="hidden" name="status" value="rejected">
+                                        <button type="submit" class="btn-icon delete text-danger" title="رفض"><i class="fas fa-times"></i></button>
+                                    </form>
+                                <?php endif; ?>
+
+                                <?php if($l->status === 'pending' || Session::hasRole('admin')): ?>
+                                    <form action="<?php echo URLROOT; ?>/leave/delete/<?php echo $l->id; ?>" method="POST" style="display:inline;" onsubmit="return confirm('تأكيد إلغاء هذا الطلب؟');">
+                                        <button type="submit" class="btn-icon delete" title="إلغاء الطلب"><i class="fas fa-trash"></i></button>
+                                    </form>
                                 <?php endif; ?>
                             </div>
                         </td>
                     </tr>
-                    <?php endforeach; else: ?>
-                    <tr>
-                        <td colspan="5" class="text-center text-muted" style="padding: 40px;">
-                            <i class="fas fa-calendar-xmark" style="font-size: 40px; opacity:0.3; margin-bottom:10px; display:block;"></i>
-                            لا توجد طلبات إجازة مسجلة في النظام.
-                        </td>
-                    </tr>
+                    <?php endforeach; ?>
+
+                    <?php if (empty($leaves)) : ?>
+                    <tr><td colspan="6" class="text-center text-muted p-5"><i class="fas fa-calendar-xmark fs-1 mb-3 opacity-50 d-block"></i> لا توجد طلبات إجازة.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>

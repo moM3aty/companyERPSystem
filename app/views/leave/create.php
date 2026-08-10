@@ -1,58 +1,60 @@
 <?php
 // app/views/leave/create.php
-$employees = $employees ?? ($data['employees'] ?? []);
-$leaveTypes = $leaveTypes ?? ($data['leave_types'] ?? []);
+$employees = $data['employees'] ?? [];
+$isAdmin = in_array(Session::getUserRole(), ['admin', 'manager', 'super_admin']);
 ?>
 
-<div class="card" style="max-width: 800px; margin: 0 auto;">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-calendar-plus text-primary"></i> تقديم طلب إجازة</h3>
+<div class="card" style="max-width: 700px; margin: 0 auto;">
+    <div class="card-header bg-light">
+        <h3 class="card-title text-dark"><i class="fas fa-plus text-primary"></i> تقديم طلب إجازة</h3>
     </div>
-
+    
     <form action="<?php echo URLROOT; ?>/leave/create" method="POST">
         <div class="card-body">
             <div class="form-grid">
                 
+                <?php if($isAdmin && !empty($employees)): ?>
                 <div class="form-group full-width">
-                    <label class="form-label">الموظف صاحب الطلب <span class="required">*</span></label>
-                    <select name="employee_id" class="form-control" required>
-                        <option value="">-- اختر الموظف --</option>
-                        <?php foreach ($employees as $emp) : ?>
+                    <label class="form-label">الموظف (تُرك فارغاً للتقديم باسمك) <span class="required">*</span></label>
+                    <select name="employee_id" class="form-control">
+                        <option value="<?php echo Session::getUserId(); ?>">أنا (<?php echo Session::getUserName(); ?>)</option>
+                        <?php foreach($employees as $emp): ?>
                             <option value="<?php echo $emp->id; ?>"><?php echo htmlspecialchars($emp->name); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <?php endif; ?>
 
                 <div class="form-group full-width">
-                    <label class="form-label">نوع الإجازة المطلوبة <span class="required">*</span></label>
-                    <select name="leave_type_id" class="form-control" required>
-                        <option value="">-- حدد النوع --</option>
-                        <?php foreach ($leaveTypes as $type) : ?>
-                            <option value="<?php echo $type->id; ?>"><?php echo htmlspecialchars($type->name); ?> (<?php echo $type->is_paid ? 'مدفوعة الأجر' : 'غير مدفوعة'; ?>)</option>
-                        <?php endforeach; ?>
+                    <label class="form-label">نوع الإجازة <span class="required">*</span></label>
+                    <select name="leave_type" class="form-control" required>
+                        <option value="annual">إجازة سنوية (Annual)</option>
+                        <option value="sick">إجازة مرضية (Sick)</option>
+                        <option value="unpaid">إجازة بدون راتب (Unpaid)</option>
+                        <option value="maternity">أمومة / أبوة</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">تبدأ من تاريخ <span class="required">*</span></label>
+                    <label class="form-label">تاريخ البداية <span class="required">*</span></label>
                     <input type="date" name="start_date" class="form-control" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">تنتهي في تاريخ <span class="required">*</span></label>
+                    <label class="form-label">تاريخ النهاية <span class="required">*</span></label>
                     <input type="date" name="end_date" class="form-control" required>
                 </div>
 
-                <div class="form-group full-width">
-                    <label class="form-label">مبررات وملاحظات الإجازة <span class="required">*</span></label>
-                    <textarea name="reason" class="form-control" rows="3" placeholder="يرجى كتابة سبب طلب الإجازة باختصار..." required></textarea>
+                <div class="form-group full-width mt-2">
+                    <label class="form-label">السبب / ملاحظات</label>
+                    <textarea name="reason" class="form-control" rows="3" placeholder="اذكر سبب الإجازة أو أية ملاحظات إضافية..."></textarea>
                 </div>
 
             </div>
         </div>
         
-        <div class="card-footer d-flex gap-3">
-            <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> إرسال للإدارة</button>
+        <div class="card-footer d-flex gap-3 bg-light mt-0">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> إرسال الطلب للاعتماد</button>
             <a href="<?php echo URLROOT; ?>/leave/index" class="btn btn-secondary">إلغاء</a>
         </div>
     </form>

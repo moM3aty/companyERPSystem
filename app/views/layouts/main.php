@@ -178,23 +178,32 @@ function isActive($uri, $paths) {
                         </ul>
                     </div>
 
-                    <?php $hrActive = isActive($currentUri, ['/employee', '/employeeContract', '/attendance', '/leave', '/payroll', '/advance', '/sanction', '/appraisal']); ?>
+                    <!-- 🟢 تم إضافة جميع روابط الموارد البشرية الجديدة هنا لتتطابق 100% مع طلباتك 🟢 -->
+                    <?php $hrActive = isActive($currentUri, ['/hrDashboard', '/employee', '/recruitment', '/onboarding', '/hrDocument', '/assetAssignment', '/attendance', '/leave', '/payroll', '/advance', '/sanction', '/appraisal', '/kpi', '/training', '/employeeContract', '/employeeRequest', '/exitProcess']); ?>
                     <div class="nav-item has-dropdown">
                         <div class="nav-link dropdown-toggle <?php echo $hrActive ? 'active open' : ''; ?>" data-target="submenu-hr">
                             <div class="nav-link-content">
-                                <i class="fas fa-users-gear nav-icon"></i><span class="nav-text">الموارد البشرية</span>
+                                <i class="fas fa-users-gear nav-icon"></i><span class="nav-text">الموارد البشرية (HR)</span>
                             </div>
                             <i class="fas fa-chevron-down arrow"></i>
                         </div>
                         <ul class="submenu <?php echo $hrActive ? 'active' : ''; ?>" id="submenu-hr">
-                            <li><a href="<?php echo URLROOT; ?>/employee/index" class="sub-link <?php echo isActive($currentUri, ['/employee']) ? 'active' : ''; ?>">شؤون الموظفين</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/hrDashboard/index" class="sub-link <?php echo isActive($currentUri, ['/hrDashboard']) ? 'active' : ''; ?>"><i class="fas fa-chart-line me-2"></i> لوحة تحكم الـ HR</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/employee/index" class="sub-link <?php echo isActive($currentUri, ['/employee']) ? 'active' : ''; ?>">دليل الموظفين</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/recruitment/index" class="sub-link <?php echo isActive($currentUri, ['/recruitment']) ? 'active' : ''; ?>">التوظيف والمرشحين</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/onboarding/index" class="sub-link <?php echo isActive($currentUri, ['/onboarding']) ? 'active' : ''; ?>">تهيئة الموظف الجديد</a></li>
                             <li><a href="<?php echo URLROOT; ?>/employeeContract/index" class="sub-link <?php echo isActive($currentUri, ['/employeeContract']) ? 'active' : ''; ?>">عقود الموظفين</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/hrDocument/index" class="sub-link <?php echo isActive($currentUri, ['/hrDocument']) ? 'active' : ''; ?>">الوثائق والإقامات</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/assetAssignment/index" class="sub-link <?php echo isActive($currentUri, ['/assetAssignment']) ? 'active' : ''; ?>">العهد والأصول</a></li>
                             <li><a href="<?php echo URLROOT; ?>/attendance/index" class="sub-link <?php echo isActive($currentUri, ['/attendance']) ? 'active' : ''; ?>">الحضور والانصراف</a></li>
                             <li><a href="<?php echo URLROOT; ?>/leave/index" class="sub-link <?php echo isActive($currentUri, ['/leave']) ? 'active' : ''; ?>">الإجازات والمغادرات</a></li>
-                            <li><a href="<?php echo URLROOT; ?>/advance/index" class="sub-link <?php echo isActive($currentUri, ['/advance']) ? 'active' : ''; ?>">السلف والعهد</a></li>
-                            <li><a href="<?php echo URLROOT; ?>/sanction/index" class="sub-link <?php echo isActive($currentUri, ['/sanction']) ? 'active' : ''; ?>">الجزاءات والمخالفات</a></li>
-                            <li><a href="<?php echo URLROOT; ?>/appraisal/index" class="sub-link <?php echo isActive($currentUri, ['/appraisal']) ? 'active' : ''; ?>">تقييمات الأداء</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/advance/index" class="sub-link <?php echo isActive($currentUri, ['/advance']) ? 'active' : ''; ?>">السلف المالية</a></li>
                             <li><a href="<?php echo URLROOT; ?>/payroll/index" class="sub-link <?php echo isActive($currentUri, ['/payroll']) ? 'active' : ''; ?>">مسيرات الرواتب</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/sanction/index" class="sub-link <?php echo isActive($currentUri, ['/sanction']) ? 'active' : ''; ?>">الجزاءات والمخالفات</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/kpi/index" class="sub-link <?php echo isActive($currentUri, ['/kpi']) ? 'active' : ''; ?>">مؤشرات الأداء (KPIs)</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/training/index" class="sub-link <?php echo isActive($currentUri, ['/training']) ? 'active' : ''; ?>">التدريب والتطوير</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/employeeRequest/index" class="sub-link <?php echo isActive($currentUri, ['/employeeRequest']) ? 'active' : ''; ?>">طلبات الموظفين</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/exitProcess/index" class="sub-link <?php echo isActive($currentUri, ['/exitProcess']) ? 'active' : ''; ?>">الاستقالة وإخلاء الطرف</a></li>
                         </ul>
                     </div>
 

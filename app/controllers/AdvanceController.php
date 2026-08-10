@@ -1,118 +1,90 @@
 <?php
 // app/controllers/AdvanceController.php
+
 class AdvanceController extends Controller {
-    private Advance $advanceModel;
+    
+    private $advanceModel;
+
     public function __construct() {
         $this->requireAuth();
-        $this->advanceModel = $this->model('Advance');
+        $this->advanceModel =$this->model('Advance');
     }
-    public function index(): void {
-        $advances = $this->advanceModel->getAllAdvances();
-        $isAdmin = Session::hasAnyRole(['admin', 'manager']);
-        $data = ['title' => 'سجل السلف والعهد', 'advances' => $advances, 'is_admin' => $isAdmin];
+
+    public function index() {
+        $advances = $this->advanceModel->getAllAdvances();$data = [
+            'title' => 'السلف والعهد النقدية',
+            'advances' => $advances,
+            'breadcrumb' => [
+                ['label' => 'الموارد البشرية', 'url' => '#'],
+                ['label' => 'السلف', 'url' => 'advance/index']
+            ]
+        ];
+        
         ob_start();
-        $this->view('advances/index', $data);
-        $content = ob_get_clean();
-        Layout::render($content, $data);
+        $this->view('advance/index', $data);$content = ob_get_clean();
+        Layout::render($content,$data);
     }
-    public function create(): void {
-        $this->requireAnyRole(['admin', 'editor', 'manager']);
+
+    public function create() {
         if ($this->isPost()) {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            $data = [
-                'employee_id'    => (int)($_POST['employee_id'] ?? 0),
-                'amount'         => (float)($_POST['amount'] ?? 0),
-                'date'           => trim($_POST['date'] ?? date('Y-m-d')),
-                'deduction_month'=> (int)($_POST['deduction_month'] ?? date('n')),
-                'deduction_year' => (int)($_POST['deduction_year'] ?? date('Y')),
-                'reason'         => trim($_POST['reason'] ?? '')
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);$data = [
+                'employee_id'     => (int)($_POST['employee_id'] ?? 0),
+                'amount'          => (float)($_POST['amount'] ?? 0),                 'date'            => trim($_POST['date'] ?? date('Y-m-d')),
+                'deduction_month' => (int)($_POST['deduction_month'] ?? date('n')),
+                'deduction_year'  => (int)($_POST['deduction_year'] ?? date('Y')),
+                'reason'          => trim($_POST['reason'] ?? '')
             ];
-            if (empty($data['employee_id']) || $data['amount'] <= 0) {
-                $this->setFlash('error', 'يرجى تحديد الموظف وإدخال مبلغ صحيح للسلفة.');
-                $this->redirect('advance/create');
-            }
-            if ($this->advanceModel->createAdvance($data)) {
-                $this->setFlash('success', 'تم تقديم طلب السلفة بنجاح وهو قيد المراجعة.');
-                $this->redirect('advance/index');
+
+            if (empty($data['employee_id']) || $data['amount'] <= 0) {$this->setFlash('error', 'الرجاء اختيار الموظف وإدخال مبلغ السلفة بشكل صحيح.');
             } else {
-                $this->setFlash('error', 'حدث خطأ أثناء حفظ الطلب.');
-                $this->redirect('advance/create');
+                if ($this->advanceModel->createAdvance($data)) {$this->setFlash('success', 'تم تقديم طلب السلفة بنجاح وهو بانتظار الاعتماد.');
+                    $this->redirect('advance/index');
+                    return;
+                } else {
+                    $this->setFlash('error', 'حدث خطأ أثناء تقديم الطلب.');
+                }
             }
-        } else {
-            $db = Database::getInstance();
-            $db->query("SELECT id, name, salary FROM employees ORDER BY name ASC");
-            $employees = $db->resultSet();
-            $data = ['title' => 'طلب سلفة جديدة', 'employees' => $employees];
-            ob_start();
-            $this->view('advances/create', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
         }
+
+        $employeeModel = $this->model('Employee');$employees = [];
+        if (method_exists($employeeModel, 'getAllEmployees')) {
+            $employees =$employeeModel->getAllEmployees();
+        }
+
+        $data = [
+            'title' => 'طلب سلفة جديدة',
+            'employees' => $employees,
+            'breadcrumb' => [
+                ['label' => 'السلف', 'url' => 'advance/index'],
+                ['label' => 'طلب جديد', 'url' => '#']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('advance/create', $data);$content = ob_get_clean();
+        Layout::render($content,$data);
     }
-    public function edit(string $id = ''): void {
-        $this->requireAnyRole(['admin', 'manager', 'editor']);
-        if (empty($id) || !is_numeric($id)) $this->redirect('advance/index');
-        $advanceId = (int)$id;
-        $advance = $this->advanceModel->getAdvanceById($advanceId);
-        if (!$advance || $advance->status !== 'pending') {
-            $this->setFlash('error', 'لا يمكن تعديل السلفة لأنها معتمدة أو ملغية.');
-            $this->redirect('advance/index');
-        }
+
+    public function updateStatus() {
+        $this->requireAnyRole(['admin', 'manager', 'super_admin']);
+        
         if ($this->isPost()) {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            $data = [
-                'employee_id'    => (int)($_POST['employee_id'] ?? $advance->employee_id),
-                'amount'         => (float)($_POST['amount'] ?? $advance->amount),
-                'date'           => trim($_POST['date'] ?? $advance->date),
-                'deduction_month'=> (int)($_POST['deduction_month'] ?? $advance->deduction_month),
-                'deduction_year' => (int)($_POST['deduction_year'] ?? $advance->deduction_year),
-                'reason'         => trim($_POST['reason'] ?? $advance->reason)
-            ];
-            if ($this->advanceModel->updateAdvance($advanceId, $data)) {
-                $this->setFlash('success', 'تم تعديل السلفة بنجاح.');
-                $this->redirect('advance/index');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء التعديل.');
-                $this->redirect('advance/edit/' . $advanceId);
-            }
-        } else {
-            $db = Database::getInstance();
-            $db->query("SELECT id, name, salary FROM employees ORDER BY name ASC");
-            $employees = $db->resultSet();
-            $data = ['title' => 'تعديل سلفة', 'advance' => $advance, 'employees' => $employees];
-            ob_start();
-            $this->view('advances/edit', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
-        }
-    }
-    public function approve(string $id = ''): void {
-        $this->requireAnyRole(['admin', 'manager']);
-        if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            if ($this->advanceModel->updateStatus((int)$id, 'approved', Session::getUserId())) {
-                $this->setFlash('success', 'تمت الموافقة على السلفة واعتمادها للخصم في الشهر المحدد.');
-            } else {
-                $this->setFlash('error', 'فشل في تحديث حالة السلفة.');
+            $advanceId = (int)($_POST['advance_id'] ?? 0);
+            $status = trim($_POST['status'] ?? '');
+            
+            if ($advanceId > 0 && in_array($status, ['approved', 'rejected'])) {
+                if ($this->advanceModel->updateStatus($advanceId, $status, Session::getUserId())) {$this->setFlash('success', 'تم تحديث حالة طلب السلفة بنجاح.');
+                } else {
+                    $this->setFlash('error', 'فشل في تحديث حالة الطلب.');
+                }
             }
         }
         $this->redirect('advance/index');
     }
-    public function reject(string $id = ''): void {
-        $this->requireAnyRole(['admin', 'manager']);
+
+    public function delete($id = '') {$this->requireRole('admin');
         if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            if ($this->advanceModel->updateStatus((int)$id, 'rejected', Session::getUserId())) {
-                $this->setFlash('success', 'تم رفض طلب السلفة.');
-            } else {
-                $this->setFlash('error', 'فشل في تحديث حالة السلفة.');
-            }
-        }
-        $this->redirect('advance/index');
-    }
-    public function delete(string $id = ''): void {
-        $this->requireRole('admin');
-        if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            if ($this->advanceModel->deleteAdvance((int)$id)) {
-                $this->setFlash('success', 'تم حذف طلب السلفة.');
+            if ($this->advanceModel->deleteAdvance((int)$id)) {$this->setFlash('success', 'تم إلغاء وحذف طلب السلفة.');
             } else {
                 $this->setFlash('error', 'حدث خطأ أثناء الحذف.');
             }

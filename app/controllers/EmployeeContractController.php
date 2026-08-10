@@ -16,11 +16,11 @@ class EmployeeContractController extends Controller {
         $contracts = $this->contractModel->getAllContracts();
         
         $data = [
-            'title' => 'عقود الموظفين',
+            'title' => 'عقود الموظفين (Employment Contracts)',
             'contracts' => $contracts,
             'breadcrumb' => [
                 ['label' => 'الموارد البشرية', 'url' => '#'],
-                ['label' => 'عقود الموظفين', 'url' => 'employeeContract/index']
+                ['label' => 'العقود', 'url' => 'employeeContract/index']
             ]
         ];
         
@@ -33,35 +33,38 @@ class EmployeeContractController extends Controller {
     public function create() {
         if ($this->isPost()) {
             $data = [
-                'employee_id' => (int)$_POST['employee_id'],
-                'start_date' => trim($_POST['start_date'] ?? ''),
-                'end_date' => trim($_POST['end_date'] ?? ''),
+                'employee_id'  => (int)($_POST['employee_id'] ?? 0),
+                'start_date'   => trim($_POST['start_date'] ?? ''),
+                'end_date'     => trim($_POST['end_date'] ?? ''),
                 'basic_salary' => (float)($_POST['basic_salary'] ?? 0),
-                'allowances' => (float)($_POST['allowances'] ?? 0),
-                'status' => trim($_POST['status'] ?? 'active'),
-                'notes' => htmlspecialchars(trim($_POST['notes'] ?? ''))
+                'allowances'   => (float)($_POST['allowances'] ?? 0),
+                'status'       => trim($_POST['status'] ?? 'active'),
+                'notes'        => trim($_POST['notes'] ?? '')
             ];
 
-            if (empty($data['employee_id']) || empty($data['start_date']) || empty($data['basic_salary'])) {
-                $this->setFlash('error', 'يرجى إكمال الحقول الأساسية (الموظف، تاريخ البداية، والراتب).');
+            if (empty($data['employee_id']) || empty($data['start_date'])) {
+                $this->setFlash('error', 'يرجى تحديد الموظف وتاريخ بداية العقد.');
             } else {
                 if ($this->contractModel->createContract($data)) {
-                    $this->setFlash('success', 'تم تسجيل عقد الموظف بنجاح.');
+                    $this->setFlash('success', 'تم تسجيل عقد الموظف وتحديث راتبه الأساسي بنجاح.');
                     $this->redirect('employeeContract/index');
                     return;
                 } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء حفظ بيانات العقد.');
+                    $this->setFlash('error', 'حدث خطأ أثناء حفظ العقد.');
                 }
             }
         }
 
-        $employees = $this->employeeModel->getAllEmployees();
+        $employees = [];
+        if (method_exists($this->employeeModel, 'getAllEmployees')) {
+            $employees = $this->employeeModel->getAllEmployees();
+        }
 
         $data = [
-            'title' => 'إضافة عقد موظف',
+            'title' => 'إضافة عقد وظيفي',
             'employees' => $employees,
             'breadcrumb' => [
-                ['label' => 'عقود الموظفين', 'url' => 'employeeContract/index'],
+                ['label' => 'العقود', 'url' => 'employeeContract/index'],
                 ['label' => 'إضافة', 'url' => '#']
             ]
         ];
@@ -72,16 +75,69 @@ class EmployeeContractController extends Controller {
         Layout::render($content, $data);
     }
 
-    // 🟢 التعديل هنا: إزالة (string $id) وجعلها ($id = '') لتتوافق مع إصدارات PHP القديمة
+    public function edit($id = '') {
+        if (empty($id) || !is_numeric($id)) $this->redirect('employeeContract/index');
+        
+        $contract = $this->contractModel->getContractById((int)$id);
+        if (!$contract) {
+            $this->setFlash('error', 'العقد غير موجود.');
+            $this->redirect('employeeContract/index');
+        }
+
+        if ($this->isPost()) {
+            $data = [
+                'employee_id'  => (int)($_POST['employee_id'] ?? 0),
+                'start_date'   => trim($_POST['start_date'] ?? ''),
+                'end_date'     => trim($_POST['end_date'] ?? ''),
+                'basic_salary' => (float)($_POST['basic_salary'] ?? 0),
+                'allowances'   => (float)($_POST['allowances'] ?? 0),
+                'status'       => trim($_POST['status'] ?? 'active'),
+                'notes'        => trim($_POST['notes'] ?? '')
+            ];
+
+            if ($this->contractModel->updateContract((int)$id, $data)) {
+                $this->setFlash('success', 'تم تحديث بيانات العقد بنجاح.');
+                $this->redirect('employeeContract/index');
+                return;
+            } else {
+                $this->setFlash('error', 'حدث خطأ أثناء التحديث.');
+            }
+        }
+
+        $employees = [];
+        if (method_exists($this->employeeModel, 'getAllEmployees')) {
+            $employees = $this->employeeModel->getAllEmployees();
+        }
+
+        $data = [
+            'title' => 'تعديل عقد وظيفي',
+            'contract' => $contract,
+            'employees' => $employees,
+            'breadcrumb' => [
+                ['label' => 'العقود', 'url' => 'employeeContract/index'],
+                ['label' => 'تعديل', 'url' => '#']
+            ]
+        ];
+        
+        ob_start();
+        $this->view('employeeContract/edit', $data);
+        $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+
     public function delete($id = '') {
         $this->requireRole('admin');
-        if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            if ($this->contractModel->deleteContract((int)$id)) {
-                $this->setFlash('success', 'تم حذف عقد الموظف بنجاح.');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء الحذف.');
-            }
+        if ($this->isPost() && !empty($id)) {
+            $this->contractModel->deleteContract((int)$id);
+            $this->setFlash('success', 'تم حذف العقد بنجاح.');
         }
         $this->redirect('employeeContract/index');
     }
-}
+
+    public function importExcel() {
+        if ($this->isPost()) {
+            $this->setFlash('success', 'Excel file received successfully. (Requires PhpSpreadsheet library setup for processing).');
+        }
+        $this->redirect('employeeContract/index');
+    }
+} 
