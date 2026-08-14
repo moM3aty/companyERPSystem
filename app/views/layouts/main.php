@@ -105,11 +105,21 @@ function isActive($uri, $paths) {
             
             <div class="sidebar-scroll-area">
                 <nav class="nav-menu">
+                    <!-- الداشبورد العام -->
                     <div class="nav-item">
-                        <a href="<?php echo URLROOT; ?>/dashboard/index" class="nav-link <?php echo isActive($currentUri, ['/dashboard']) ? 'active' : ''; ?>">
+                        <a href="<?php echo URLROOT; ?>/dashboard/index" class="nav-link <?php echo isActive($currentUri, ['/dashboard/index']) ? 'active' : ''; ?>">
                             <div class="nav-link-content"><i class="fas fa-chart-pie nav-icon"></i><span class="nav-text">لوحة القيادة</span></div>
                         </a>
                     </div>
+                    
+                    <!-- لوحة القيادة العليا (للمدراء فقط) -->
+                    <?php if(in_array($userRole, ['admin', 'super_admin', 'ceo'])): ?>
+                    <div class="nav-item">
+                        <a href="<?php echo URLROOT; ?>/dashboard/ceo" class="nav-link <?php echo isActive($currentUri, ['/dashboard/ceo']) ? 'active' : ''; ?>">
+                            <div class="nav-link-content"><i class="fas fa-crown nav-icon text-warning"></i><span class="nav-text">لوحة الـ CEO</span></div>
+                        </a>
+                    </div>
+                    <?php endif; ?>
 
                     <div class="nav-item">
                         <a href="<?php echo URLROOT; ?>/pos/index" class="nav-link <?php echo isActive($currentUri, ['/pos']) ? 'active' : ''; ?>">
@@ -117,7 +127,7 @@ function isActive($uri, $paths) {
                         </a>
                     </div>
 
-                    <?php $salesActive = isActive($currentUri, ['/customer', '/lead', '/opportunity', '/quote', '/sale', '/campaign', '/saleReturn', '/salesOrder', '/followup']); ?>
+                    <?php $salesActive = isActive($currentUri, ['/customer', '/lead', '/opportunity', '/quote', '/salesInvoice', '/sale', '/campaign', '/saleReturn', '/salesOrder', '/followup']); ?>
                     <div class="nav-item has-dropdown">
                         <div class="nav-link dropdown-toggle <?php echo $salesActive ? 'active open' : ''; ?>" data-target="submenu-sales">
                             <div class="nav-link-content">
@@ -131,14 +141,14 @@ function isActive($uri, $paths) {
                             <li><a href="<?php echo URLROOT; ?>/opportunity/index" class="sub-link <?php echo isActive($currentUri, ['/opportunity']) ? 'active' : ''; ?>">مسار الفرص (Pipeline)</a></li>
                             <li><a href="<?php echo URLROOT; ?>/quote/index" class="sub-link <?php echo isActive($currentUri, ['/quote']) ? 'active' : ''; ?>">عروض الأسعار</a></li>
                             <li><a href="<?php echo URLROOT; ?>/salesOrder/index" class="sub-link <?php echo isActive($currentUri, ['/salesOrder']) ? 'active' : ''; ?>">أوامر البيع (SO)</a></li>
-                            <li><a href="<?php echo URLROOT; ?>/sale/index" class="sub-link <?php echo isActive($currentUri, ['/sale']) ? 'active' : ''; ?>">فواتير المبيعات</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/salesInvoice/index" class="sub-link <?php echo isActive($currentUri, ['/salesInvoice']) ? 'active' : ''; ?>">فواتير المبيعات</a></li>
                             <li><a href="<?php echo URLROOT; ?>/saleReturn/index" class="sub-link <?php echo isActive($currentUri, ['/saleReturn']) ? 'active' : ''; ?>">مرتجعات المبيعات</a></li>
                             <li><a href="<?php echo URLROOT; ?>/customer/index" class="sub-link <?php echo isActive($currentUri, ['/customer']) ? 'active' : ''; ?>">دليل العملاء</a></li>
                             <li><a href="<?php echo URLROOT; ?>/campaign/index" class="sub-link <?php echo isActive($currentUri, ['/campaign']) ? 'active' : ''; ?>">الحملات التسويقية</a></li>
                         </ul>
                     </div>
 
-                    <?php $purchasesActive = isActive($currentUri, ['/supplier', '/purchase', '/product', '/category', '/stocktake', '/productBatch', '/warehouse', '/purchaseRequest', '/purchaseReturn']); ?>
+                    <?php $purchasesActive = isActive($currentUri, ['/supplier', '/purchase', '/purchaseInvoice', '/purchaseOrder', '/product', '/category', '/stocktake', '/productBatch', '/warehouse', '/purchaseRequest', '/purchaseReturn']); ?>
                     <div class="nav-item has-dropdown">
                         <div class="nav-link dropdown-toggle <?php echo $purchasesActive ? 'active open' : ''; ?>" data-target="submenu-purchases">
                             <div class="nav-link-content">
@@ -147,8 +157,9 @@ function isActive($uri, $paths) {
                             <i class="fas fa-chevron-down arrow"></i>
                         </div>
                         <ul class="submenu <?php echo $purchasesActive ? 'active' : ''; ?>" id="submenu-purchases">
-                            <li><a href="<?php echo URLROOT; ?>/purchaseRequest/index" class="sub-link <?php echo isActive($currentUri, ['/purchaseRequest']) ? 'active' : ''; ?>">طلبات شراء داخلية (PR)</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/purchaseRequest/index" class="sub-link <?php echo isActive($currentUri, ['/purchaseRequest']) ? 'active' : ''; ?>">طلبات شراء (PR)</a></li>
                             <li><a href="<?php echo URLROOT; ?>/purchase/index" class="sub-link <?php echo isActive($currentUri, ['/purchase']) ? 'active' : ''; ?>">أوامر الشراء (PO)</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/purchaseInvoice/index" class="sub-link <?php echo isActive($currentUri, ['/purchaseInvoice']) ? 'active' : ''; ?>">فواتير المشتريات</a></li>
                             <li><a href="<?php echo URLROOT; ?>/purchaseReturn/index" class="sub-link <?php echo isActive($currentUri, ['/purchaseReturn']) ? 'active' : ''; ?>">مرتجعات المشتريات</a></li>
                             <li><a href="<?php echo URLROOT; ?>/supplier/index" class="sub-link <?php echo isActive($currentUri, ['/supplier']) ? 'active' : ''; ?>">دليل الموردين</a></li>
                             <li><a href="<?php echo URLROOT; ?>/product/index" class="sub-link <?php echo isActive($currentUri, ['/product']) ? 'active' : ''; ?>">المنتجات والمخزون</a></li>
@@ -159,7 +170,7 @@ function isActive($uri, $paths) {
                         </ul>
                     </div>
 
-                    <?php $financeActive = isActive($currentUri, ['/accounting', '/account', '/treasury', '/payment', '/expense', '/journal', '/collection']); ?>
+                    <?php $financeActive = isActive($currentUri, ['/accounting', '/account', '/treasury', '/payment', '/expense', '/expenseClaim', '/journal', '/collection', '/reconciliation', '/budget']); ?>
                     <div class="nav-item has-dropdown">
                         <div class="nav-link dropdown-toggle <?php echo $financeActive ? 'active open' : ''; ?>" data-target="submenu-finance">
                             <div class="nav-link-content">
@@ -169,16 +180,18 @@ function isActive($uri, $paths) {
                         </div>
                         <ul class="submenu <?php echo $financeActive ? 'active' : ''; ?>" id="submenu-finance">
                             <li><a href="<?php echo URLROOT; ?>/accounting/dashboard" class="sub-link <?php echo isActive($currentUri, ['/accounting']) ? 'active' : ''; ?>">اللوحة المالية</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/account/tree" class="sub-link <?php echo isActive($currentUri, ['/account']) ? 'active' : ''; ?>">شجرة الحسابات (COA)</a></li>
                             <li><a href="<?php echo URLROOT; ?>/treasury/index" class="sub-link <?php echo isActive($currentUri, ['/treasury']) ? 'active' : ''; ?>">الصندوق والبنوك</a></li>
-                            <li><a href="<?php echo URLROOT; ?>/collection/index" class="sub-link <?php echo isActive($currentUri, ['/collection']) ? 'active' : ''; ?>">تحصيلات الفواتير</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/reconciliation/index" class="sub-link <?php echo isActive($currentUri, ['/reconciliation']) ? 'active' : ''; ?>">تسوية البنوك (Reconciliation)</a></li>
                             <li><a href="<?php echo URLROOT; ?>/payment/index" class="sub-link <?php echo isActive($currentUri, ['/payment']) ? 'active' : ''; ?>">سندات الصرف والقبض</a></li>
                             <li><a href="<?php echo URLROOT; ?>/expense/index" class="sub-link <?php echo isActive($currentUri, ['/expense']) ? 'active' : ''; ?>">المصروفات التشغيلية</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/expenseClaim/index" class="sub-link <?php echo isActive($currentUri, ['/expenseClaim']) ? 'active' : ''; ?>">مطالبات الموظفين (العهد)</a></li>
                             <li><a href="<?php echo URLROOT; ?>/journal/index" class="sub-link <?php echo isActive($currentUri, ['/journal']) ? 'active' : ''; ?>">القيود اليومية</a></li>
-                            <li><a href="<?php echo URLROOT; ?>/account/tree" class="sub-link <?php echo isActive($currentUri, ['/account']) ? 'active' : ''; ?>">شجرة الحسابات</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/budget/index" class="sub-link <?php echo isActive($currentUri, ['/budget']) ? 'active' : ''; ?>">الموازنة التقديرية</a></li>
+                            <li><a href="<?php echo URLROOT; ?>/collection/index" class="sub-link <?php echo isActive($currentUri, ['/collection']) ? 'active' : ''; ?>">تحصيلات الفواتير</a></li>
                         </ul>
                     </div>
 
-                    <!-- 🟢 تم إضافة جميع روابط الموارد البشرية الجديدة هنا لتتطابق 100% مع طلباتك 🟢 -->
                     <?php $hrActive = isActive($currentUri, ['/hrDashboard', '/employee', '/recruitment', '/onboarding', '/hrDocument', '/assetAssignment', '/attendance', '/leave', '/payroll', '/advance', '/sanction', '/appraisal', '/kpi', '/training', '/employeeContract', '/employeeRequest', '/exitProcess']); ?>
                     <div class="nav-item has-dropdown">
                         <div class="nav-link dropdown-toggle <?php echo $hrActive ? 'active open' : ''; ?>" data-target="submenu-hr">

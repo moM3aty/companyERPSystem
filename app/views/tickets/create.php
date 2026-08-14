@@ -1,61 +1,29 @@
 <?php
-// المسار: app/views/tickets/create.php
-$customers = $data['customers'] ?? [];
-$users = $data['users'] ?? [];
+// app/views/tickets/create.php
 ?>
-
-<div class="card" style="max-width: 800px; margin: 0 auto;">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-headset text-primary"></i> فتح تذكرة شكوى أو دعم جديدة</h3>
-    </div>
-
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <div class="card-header bg-light"><h3 class="card-title text-dark"><i class="fas fa-ticket text-primary"></i> فتح تذكرة دعم فني</h3></div>
     <form action="<?php echo URLROOT; ?>/ticket/create" method="POST">
-        <div class="card-body">
-            <div class="form-grid">
-                <div class="form-group full-width">
-                    <label class="form-label">عنوان التذكرة (Subject) <span class="required">*</span></label>
-                    <input type="text" name="subject" class="form-control" required placeholder="اكتب ملخصاً قصيراً للمشكلة...">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">العميل المرتبط (إن وجد)</label>
-                    <select name="customer_id" class="form-control">
-                        <option value="">-- تذكرة عامة أو داخلية --</option>
-                        <?php foreach($customers as $c): ?>
-                            <option value="<?php echo $c->id; ?>"><?php echo htmlspecialchars($c->name); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">تعيين إلى الموظف (Assigned To)</label>
-                    <select name="assigned_to" class="form-control">
-                        <option value="">-- يحدد لاحقاً --</option>
-                        <?php foreach($users as $u): ?>
-                            <option value="<?php echo $u->id; ?>"><?php echo htmlspecialchars($u->name); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="form-group full-width">
-                    <label class="form-label">مستوى الأولوية (Priority)</label>
-                    <div class="d-flex align-items-center gap-4 mt-2">
-                        <label class="d-flex align-items-center gap-2 cursor-pointer text-muted fw-bold"><input type="radio" name="priority" value="low"> منخفضة</label>
-                        <label class="d-flex align-items-center gap-2 cursor-pointer text-info fw-bold"><input type="radio" name="priority" value="medium" checked> متوسطة</label>
-                        <label class="d-flex align-items-center gap-2 cursor-pointer text-warning fw-bold"><input type="radio" name="priority" value="high"> عالية</label>
-                        <label class="d-flex align-items-center gap-2 cursor-pointer text-danger fw-bold"><input type="radio" name="priority" value="urgent"> طارئة</label>
-                    </div>
-                </div>
-
-                <div class="form-group full-width">
-                    <label class="form-label">وصف المشكلة بالتفصيل <span class="required">*</span></label>
-                    <textarea name="description" class="form-control" required rows="5" placeholder="اكتب كل التفاصيل التي ستساعد في حل المشكلة بسرعة..."></textarea>
-                </div>
+        <div class="card-body form-grid" style="grid-template-columns: 1fr;">
+            <div class="form-group mb-0">
+                <label class="form-label">موضوع المشكلة <span class="required">*</span></label>
+                <input type="text" name="subject" class="form-control" required>
+            </div>
+            <div class="form-group mb-0 mt-3">
+                <label class="form-label">درجة الأهمية</label>
+                <select name="priority" class="form-control fw-bold">
+                    <option value="low">منخفضة (Low)</option>
+                    <option value="medium" selected>متوسطة (Medium)</option>
+                    <option value="high" class="text-danger">عاجلة / حرجة (High)</option>
+                </select>
+            </div>
+            <div class="form-group mb-0 mt-3">
+                <label class="form-label">تفاصيل المشكلة <span class="required">*</span></label>
+                <textarea name="description" class="form-control" rows="5" required placeholder="يرجى وصف المشكلة بدقة..."></textarea>
             </div>
         </div>
-        
-        <div class="card-footer d-flex gap-3">
-            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> فتح التذكرة</button>
+        <div class="card-footer d-flex gap-3 bg-light mt-0">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> إرسال التذكرة</button>
             <a href="<?php echo URLROOT; ?>/ticket/index" class="btn btn-secondary">إلغاء</a>
         </div>
     </form>

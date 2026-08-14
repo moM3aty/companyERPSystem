@@ -7,224 +7,150 @@ class SalesOrderController extends Controller {
 
     public function __construct() {
         $this->requireAuth();
+        $role = Session::getUserRole();
+        if (!in_array($role, ['admin', 'super_admin', 'manager', 'sales', 'accountant'])) {
+            $this->redirect('dashboard/index');
+            exit;
+        }
         $this->salesOrderModel = $this->model('SalesOrder');
     }
 
     public function index() {
-        $orders = $this->salesOrderModel->getAllOrders();
-        
+        $orders = [];
+        try {
+            $orders = $this->salesOrderModel->getAllSalesOrders();
+        } catch (Throwable $e) {}
+
         $data = [
             'title' => 'أوامر البيع (Sales Orders)',
-            'orders' => $orders,
-            'breadcrumb' => [
-                ['label' => 'المبيعات', 'url' => '#'],
-                ['label' => 'أوامر البيع', 'url' => 'salesOrder/index']
-            ]
+            'orders' => is_array($orders) ? $orders : [],
+            'breadcrumb' => [['label' => 'المبيعات', 'url' => '#'], ['label' => 'أوامر البيع', 'url' => 'salesOrder/index']]
         ];
         
-        ob_start();
-        $this->view('salesOrder/index', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('sales_order/index', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function show(string $id = '') {
-        if (empty($id) || !is_numeric($id)) $this->redirect('salesOrder/index');
-
-        $orderId = (int)$id;
-        $order = $this->salesOrderModel->getOrderById($orderId);
-        
-        if (!$order) {
-            $this->setFlash('error', 'أمر البيع غير موجود أو تم حذفه.');
-            $this->redirect('salesOrder/index');
-        }
-
-        $items = $this->salesOrderModel->getOrderItems($orderId);
-
-        $data = [
-            'title' => 'تفاصيل أمر البيع #' . $order->order_number,
-            'order' => $order,
-            'items' => $items,
-            'breadcrumb' => [
-                ['label' => 'أوامر البيع', 'url' => 'salesOrder/index'],
-                ['label' => 'عرض الأمر', 'url' => '#']
-            ]
-        ];
-        
-        ob_start();
-        $this->view('salesOrder/show', $data);
-        $content = ob_get_clean();
-        Layout::render($content, $data);
-    }
-
-    /* STREAMING_CHUNK: Create Order without filter_input_array bug */
     public function create() {
         if ($this->isPost()) {
-            // إزالة filter_input_array لتجنب مسح الحقول في بعض السيرفرات
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+
             $data = [
-                'order_number' => trim($_POST['order_number'] ?? 'SO-' . time()),
-                'customer_id' => !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null,
-                'customer_name' => htmlspecialchars(trim($_POST['customer_name'] ?? 'عميل نقدي')),
-                'order_date' => trim($_POST['order_date'] ?? date('Y-m-d')),
-                'status' => trim($_POST['status'] ?? 'draft'), // هنا تم تأمين قراءة الحالة بشكل مباشر
-                'notes' => htmlspecialchars(trim($_POST['notes'] ?? ''))
+                'order_number'      => trim($_POST['order_number'] ?? ''),
+                'customer_id'       => (int)($_POST['customer_id'] ?? 0),
+                'order_date'        => trim($_POST['order_date'] ?? date('Y-m-d')),
+                'expected_delivery' => trim($_POST['expected_delivery'] ?? ''),
+                'total_amount'      => (float)($_POST['grand_total'] ?? 0),
+                'notes'             => trim($_POST['notes'] ?? '')
             ];
 
-            $productIds = $_POST['product_id'] ?? [];
-            $quantities = $_POST['quantity'] ?? [];
-            $prices = $_POST['price'] ?? [];
-            
-            $items = [];
-            $totalAmount = 0;
+            $productIds   = $_POST['product_id'] ?? [];
+            $productNames = $_POST['product_name'] ?? [];
+            $quantities   = $_POST['quantity'] ?? [];
+            $prices       = $_POST['unit_price'] ?? [];
+            $totals       = $_POST['total_price'] ?? [];
 
+            $items = [];
             for ($i = 0; $i < count($productIds); $i++) {
-                if (!empty($productIds[$i])) {
-                    $qty = (float)($quantities[$i] ?? 1);
-                    $price = (float)($prices[$i] ?? 0);
-                    $subtotal = $qty * $price;
-                    $totalAmount += $subtotal;
-                    
+                if (!empty($productIds[$i]) && $quantities[$i] > 0) {
                     $items[] = [
-                        'product_id' => (int)$productIds[$i],
-                        'quantity' => $qty,
-                        'price' => $price,
-                        'subtotal' => $subtotal
+                        'product_id'   => (int)$productIds[$i],
+                        'product_name' => $productNames[$i] ?? 'منتج',
+                        'quantity'     => (float)$quantities[$i],
+                        'unit_price'   => (float)$prices[$i],
+                        'total_price'  => (float)$totals[$i]
                     ];
                 }
             }
 
-            $data['total_amount'] = $totalAmount;
+            if (empty($data['customer_id'])) {
+                $this->setFlash('error', 'يجب اختيار العميل.');
+                $this->redirect('salesOrder/create');
+                return;
+            }
 
             if (empty($items)) {
-                $this->setFlash('error', 'يجب إضافة صنف واحد على الأقل لأمر البيع.');
-            } else {
-                try {
-                    $this->salesOrderModel->createOrder($data, $items);
+                $this->setFlash('error', 'يجب اختيار صنف واحد على الأقل من المخزون.');
+                $this->redirect('salesOrder/create');
+                return;
+            }
+
+            try {
+                $orderId = $this->salesOrderModel->createSalesOrder($data, $items);
+                if ($orderId) {
                     $this->setFlash('success', 'تم إنشاء أمر البيع بنجاح.');
-                    $this->redirect('salesOrder/index');
+                    $this->redirect('salesOrder/show/' . $orderId);
                     return;
-                } catch (Exception $e) {
-                    $this->setFlash('error', 'مشكلة في قاعدة البيانات: ' . $e->getMessage());
                 }
+            } catch (Throwable $e) {
+                $this->setFlash('error', 'تفاصيل الخطأ التقني: ' . $e->getMessage());
             }
         }
 
-        $productModel = $this->model('Product');
-        $products = $productModel->getAllProducts();
+        $db = Database::getInstance();
+        $cid = Session::get('company_id') ?: 1;
+        $customers = []; $products = [];
         
-        $customerModel = $this->model('Customer');
-        $customers = method_exists($customerModel, 'getAllCustomers') ? $customerModel->getAllCustomers() : [];
+        try {
+            $db->query("SELECT id, name FROM customers WHERE company_id = :cid");
+            $db->bind(':cid', $cid);
+            $customers = $db->resultSet() ?: [];
+        } catch (Throwable $e) {}
+
+        try {
+            $db->query("SELECT id, name, sell_price as price FROM products WHERE company_id = :cid");
+            $db->bind(':cid', $cid);
+            $products = $db->resultSet() ?: [];
+        } catch (Throwable $e) {
+            try {
+                $db->query("SELECT id, name, price FROM products WHERE company_id = :cid");
+                $db->bind(':cid', $cid);
+                $products = $db->resultSet() ?: [];
+            } catch(Throwable $t) {}
+        }
 
         $data = [
             'title' => 'إنشاء أمر بيع جديد',
-            'products' => $products,
             'customers' => $customers,
-            'default_order_number' => 'SO-' . date('ymd') . rand(10,99),
-            'breadcrumb' => [
-                ['label' => 'أوامر البيع', 'url' => 'salesOrder/index'],
-                ['label' => 'جديد', 'url' => '#']
-            ]
+            'products' => $products,
+            'auto_order_num' => 'SO-' . date('Ymd') . '-' . rand(100, 999)
         ];
         
-        ob_start();
-        $this->view('salesOrder/create', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('sales_order/create', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    /* STREAMING_CHUNK: Edit Order without filter_input_array bug */
-    public function edit(string $id = '') {
+    public function show($id = '') {
         if (empty($id) || !is_numeric($id)) $this->redirect('salesOrder/index');
-
-        $orderId = (int)$id;
-        $order = $this->salesOrderModel->getOrderById($orderId);
-
+        
+        $order = null;
+        try { $order = $this->salesOrderModel->getSalesOrderById((int)$id); } catch (Throwable $e) {}
+        
         if (!$order) {
             $this->setFlash('error', 'أمر البيع غير موجود.');
             $this->redirect('salesOrder/index');
         }
-
-        if ($this->isPost()) {
-            // القراءة المباشرة من POST لضمان التقاط قيمة الحالة (Status) بدقة
-            $data = [
-                'customer_id' => !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null,
-                'customer_name' => htmlspecialchars(trim($_POST['customer_name'] ?? 'عميل نقدي')),
-                'order_date' => trim($_POST['order_date'] ?? date('Y-m-d')),
-                'status' => trim($_POST['status'] ?? 'draft'), // التقاط الحالة بشكل مؤكد
-                'notes' => htmlspecialchars(trim($_POST['notes'] ?? ''))
-            ];
-
-            $productIds = $_POST['product_id'] ?? [];
-            $quantities = $_POST['quantity'] ?? [];
-            $prices = $_POST['price'] ?? [];
-            
-            $items = [];
-            $totalAmount = 0;
-
-            for ($i = 0; $i < count($productIds); $i++) {
-                if (!empty($productIds[$i])) {
-                    $qty = (float)($quantities[$i] ?? 1);
-                    $price = (float)($prices[$i] ?? 0);
-                    $subtotal = $qty * $price;
-                    $totalAmount += $subtotal;
-                    
-                    $items[] = [
-                        'product_id' => (int)$productIds[$i],
-                        'quantity' => $qty,
-                        'price' => $price,
-                        'subtotal' => $subtotal
-                    ];
-                }
-            }
-
-            $data['total_amount'] = $totalAmount;
-
-            if (empty($items)) {
-                $this->setFlash('error', 'يجب إضافة صنف واحد على الأقل للتحديث.');
-            } else {
-                try {
-                    $this->salesOrderModel->updateOrder($orderId, $data, $items);
-                    $this->setFlash('success', 'تم تعديل بيانات وحالة أمر البيع بنجاح.');
-                    $this->redirect('salesOrder/index');
-                    return;
-                } catch (Exception $e) {
-                    $this->setFlash('error', 'مشكلة تمنع الحفظ: ' . $e->getMessage());
-                }
-            }
-        }
-
-        $items = $this->salesOrderModel->getOrderItems($orderId);
-        $productModel = $this->model('Product');
-        $products = $productModel->getAllProducts();
         
-        $customerModel = $this->model('Customer');
-        $customers = method_exists($customerModel, 'getAllCustomers') ? $customerModel->getAllCustomers() : [];
+        $items = $this->salesOrderModel->getSalesOrderItems($order->id);
 
         $data = [
-            'title' => 'تعديل أمر البيع #' . $order->order_number,
+            'title' => 'أمر بيع #' . $order->order_number,
             'order' => $order,
             'items' => $items,
-            'products' => $products,
-            'customers' => $customers,
-            'breadcrumb' => [
-                ['label' => 'أوامر البيع', 'url' => 'salesOrder/index'],
-                ['label' => 'تعديل', 'url' => '#']
-            ]
+            'breadcrumb' => [['label' => 'المبيعات', 'url' => 'salesOrder/index'], ['label' => 'عرض أمر البيع', 'url' => '#']]
         ];
         
-        ob_start();
-        $this->view('salesOrder/edit', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('sales_order/show', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function delete(string $id = '') {
-        $this->requireRole('admin');
-        if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            if ($this->salesOrderModel->deleteOrder((int)$id)) {
+    public function delete($id = '') {
+        $this->requireAnyRole(['admin', 'super_admin', 'manager']); 
+        if ($this->isPost() && !empty($id)) {
+            if ($this->salesOrderModel->deleteSalesOrder((int)$id)) {
                 $this->setFlash('success', 'تم حذف أمر البيع بنجاح.');
             } else {
-                $this->setFlash('error', 'حدث خطأ أثناء الحذف.');
+                $this->setFlash('error', 'حدث خطأ أثناء محاولة الحذف.');
             }
         }
         $this->redirect('salesOrder/index');

@@ -7,118 +7,176 @@ class Expense extends Model {
         parent::__construct();
         $this->table = 'expenses';
     }
-    
-    public function getAllExpenses(): array {
-        $sql = "SELECT e.*, c.name as category_name, u.name as created_by_name 
-                FROM {$this->table} e 
-                LEFT JOIN expense_categories c ON e.category_id = c.id 
-                LEFT JOIN users u ON e.created_by = u.id 
-                WHERE e.company_id = :cid
-                ORDER BY e.expense_date DESC, e.created_at DESC";
-        $this->db->query($sql);
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        return $this->db->resultSet();
-    }
-    
-    public function getTotalExpenses(): float {
-        $sql = "SELECT SUM(amount) as total FROM {$this->table} WHERE company_id = :cid";
-        $this->db->query($sql);
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        $result = $this->db->single();
-        return $result ? (float)$result->total : 0.0;
-    }
-    
-    public function getCategories(): array {
-        $this->db->query("SELECT * FROM expense_categories WHERE company_id = :cid OR company_id IS NULL ORDER BY name ASC");
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        return $this->db->resultSet();
-    }
-    
-    public function createExpense(array $data): bool {
-        try {
-            $this->db->beginTransaction();
-            $companyId = Session::get('company_id');
 
-            $sql = "INSERT INTO {$this->table} (company_id, category_id, amount, expense_date, reference_no, notes, created_by, created_at) 
-                    VALUES (:company_id, :category_id, :amount, :expense_date, :reference_no, :notes, :created_by, NOW())";
+    public function getAllExpenses() {
+        try {
+            // أضفنا الربط مع جدول expense_categories لجلب اسم التصنيف
+            $sql = "SELECT e.*, t.name as treasury_name, u.name as user_name, ec.name as category_name
+                    FROM {$this->table} e 
+                    LEFT JOIN treasuries t ON e.treasury_id = t.id 
+                    LEFT JOIN expense_categories ec ON e.category_id = ec.id
+                    LEFT JOIN users u ON e.created_by = u.id 
+                    WHERE e.company_id = :cid ORDER BY e.created_at DESC";
+            $this->db->query($sql);
+            $this->db->bind(':cid', Session::get('company_id') ?: 1);
+            return $this->db->resultSet();
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getExpenseById($id) {
+        try {
+            $this->db->query("SELECT e.*, t.name as treasury_name, u.name as user_name, ec.name as category_name
+                              FROM {$this->table} e 
+                              LEFT JOIN treasuries t ON e.treasury_id = t.id 
+                              LEFT JOIN expense_categories ec ON e.category_id = ec.id
+                              LEFT JOIN users u ON e.created_by = u.id 
+                              WHERE e.id = :id AND e.company_id = :cid LIMIT 1");
+            $this->db->bind(':id', $id);
+            $this->db->bind(':cid', Session::get('company_id') ?: 1);
+            return $this->db->single();
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    public function createExpense($data) {
+        $treasuryCol = 'current_balance';
+        try {
+            $this->db->query("SHOW COLUMNS FROM treasuries LIKE 'balance'");
+            if (!empty($this->db->resultSet())) $treasuryCol = 'balance';
+        } catch(Exception $e){}
+
+        $this->db->beginTransaction();
+        try {
+            // تم تغيير category إلى category_id
+            $sql = "INSERT INTO {$this->table} 
+                    (company_id, treasury_id, expense_date, category_id, amount, tax_amount, total_amount, cost_center, reference, notes, attachment, created_by) 
+                    VALUES (:cid, :tid, :edate, :cat_id, :amt, :tax, :total, :cc, :ref, :notes, :attach, :user)";
             
             $this->db->query($sql);
-            $this->db->bind(':company_id', $companyId, PDO::PARAM_INT);
-            $this->db->bind(':category_id', $data['category_id'], PDO::PARAM_INT);
-            $this->db->bind(':amount', $data['amount']);
-            $this->db->bind(':expense_date', $data['expense_date']);
-            $this->db->bind(':reference_no', $data['reference_no']);
+            $this->db->bind(':cid', Session::get('company_id') ?: 1);
+            $this->db->bind(':tid', $data['treasury_id']);
+            $this->db->bind(':edate', $data['expense_date']);
+            $this->db->bind(':cat_id', $data['category_id']); // الحقل الجديد المربوط
+            $this->db->bind(':amt', $data['amount']);
+            $this->db->bind(':tax', $data['tax_amount']);
+            $this->db->bind(':total', $data['total_amount']);
+            $this->db->bind(':cc', $data['cost_center']);
+            $this->db->bind(':ref', $data['reference']);
             $this->db->bind(':notes', $data['notes']);
-            $this->db->bind(':created_by', $data['created_by'], PDO::PARAM_INT);
+            $this->db->bind(':attach', $data['attachment']);
+            $this->db->bind(':user', Session::getUserId());
             $this->db->execute();
-
+            
             $expenseId = $this->db->lastInsertId();
 
-            // نقوم بجلب حساب المصروفات (افتراضياً) وحساب الصندوق
-            $dbCoa = $this->db;
-            $dbCoa->query("SELECT id FROM chart_of_accounts WHERE type = 'expense' LIMIT 1");
-            $expenseAcc = $dbCoa->single();
+            // خصم قيمة المصروف من الخزنة
+            $this->db->query("UPDATE treasuries SET {$treasuryCol} = {$treasuryCol} - :total WHERE id = :tid");
+            $this->db->bind(':total', $data['total_amount']);
+            $this->db->bind(':tid', $data['treasury_id']);
+            $this->db->execute();
+
+            $this->db->commit();
+
+            try {
+                $this->createExpenseJournal($data, $expenseId);
+            } catch (Throwable $th) {}
+
+            return $expenseId;
+
+        } catch (Throwable $e) {
+            try { $this->db->rollBack(); } catch (Throwable $t) {}
+            throw new Exception($e->getMessage());
+        }
+    }
+
+    private function createExpenseJournal($data, $expenseId) {
+        if (!file_exists('../app/models/JournalEntry.php')) return;
+        require_once '../app/models/JournalEntry.php';
+        if (!class_exists('JournalEntry')) return;
+
+        $jeModel = new JournalEntry();
+        
+        $this->db->query("SELECT chart_account_id FROM treasuries WHERE id = :tid");
+        $this->db->bind(':tid', $data['treasury_id']);
+        $treasuryAcc = $this->db->single();
+        $cashAccId = $treasuryAcc ? $treasuryAcc->chart_account_id : null;
+
+        $expAccId = null;
+        $table = "chart_of_accounts";
+        try {
+            $this->db->query("SELECT 1 FROM `accounting_accounts` LIMIT 1");
+            $table = "accounting_accounts";
+        } catch(Exception $e) {}
+
+        $this->db->query("SELECT id FROM {$table} WHERE type = 'Expense' OR account_type = 'Expense' LIMIT 1");
+        $exp = $this->db->single();
+        if ($exp) $expAccId = $exp->id;
+
+        // جلب اسم التصنيف للقيد
+        $catName = "مصروف عام";
+        try {
+            $this->db->query("SELECT name FROM expense_categories WHERE id = :id");
+            $this->db->bind(':id', $data['category_id']);
+            $cat = $this->db->single();
+            if ($cat) $catName = $cat->name;
+        } catch (Exception $e) {}
+
+        if ($cashAccId && $expAccId) {
+            $jeData = [
+                'journal_number' => 'JV-EXP-' . time(),
+                'date' => $data['expense_date'],
+                'description' => "مصروف {$catName}: {$data['notes']}",
+                'total_amount' => $data['total_amount']
+            ];
+
+            $lines = [
+                ['account_id' => $expAccId, 'description' => "إثبات مصروف {$catName}", 'debit' => $data['amount'], 'credit' => 0],
+                ['account_id' => $cashAccId, 'description' => "دفع مصروف من الخزنة", 'debit' => 0, 'credit' => $data['total_amount']]
+            ];
             
-            $dbCoa->query("SELECT id FROM chart_of_accounts WHERE type = 'asset' AND name LIKE '%صندوق%' LIMIT 1");
-            $cashAcc = $dbCoa->single();
-
-            if ($expenseAcc && $cashAcc) {
-                $lines = [
-                    ['account_id' => $expenseAcc->id, 'debit' => $data['amount'], 'credit' => 0, 'description' => "مصروف تشغيلي: {$data['notes']}"],
-                    ['account_id' => $cashAcc->id, 'debit' => 0, 'credit' => $data['amount'], 'description' => "صرف مبلغ لمصروف {$data['reference_no']}"]
-                ];
-                
-                $accountingModel = new Accounting();
-                $accountingModel->createJournalEntry(
-                    $data['expense_date'],
-                    "تسجيل مصروف تشغيلي بمبلغ {$data['amount']}",
-                    'expense',
-                    $expenseId,
-                    $data['created_by'],
-                    $lines
-                );
-
-                // تحديث رصيد الخزينة برمجياً إذا لزم الأمر
-                $dbCoa->query("UPDATE treasuries SET current_balance = current_balance - :amt WHERE id = 1"); // نفترض الخزنة الرئيسية 1
-                $dbCoa->bind(':amt', $data['amount']);
-                $dbCoa->execute();
+            if ($data['tax_amount'] > 0) {
+                $this->db->query("SELECT id FROM {$table} WHERE name LIKE '%ضريبة%' OR account_name LIKE '%VAT%' LIMIT 1");
+                $taxAcc = $this->db->single();
+                if ($taxAcc) {
+                    $lines[] = ['account_id' => $taxAcc->id, 'description' => "ضريبة مصروف", 'debit' => $data['tax_amount'], 'credit' => 0];
+                } else {
+                    $lines[0]['debit'] += $data['tax_amount'];
+                }
             }
+            $jeModel->createEntry($jeData, $lines);
+        }
+    }
 
-            ActivityLog::logAction('CREATE', 'Expense', $expenseId, "تم تسجيل مصروف بقيمة {$data['amount']}");
+    public function deleteExpense($id) {
+        $this->db->beginTransaction();
+        try {
+            $exp = $this->getExpenseById($id);
+            if (!$exp) throw new Exception("المصروف غير موجود");
+
+            $treasuryCol = 'current_balance';
+            try {
+                $this->db->query("SHOW COLUMNS FROM treasuries LIKE 'balance'");
+                if (!empty($this->db->resultSet())) $treasuryCol = 'balance';
+            } catch(Exception $e){}
+
+            $this->db->query("UPDATE treasuries SET {$treasuryCol} = {$treasuryCol} + :amt WHERE id = :tid");
+            $this->db->bind(':amt', $exp->total_amount);
+            $this->db->bind(':tid', $exp->treasury_id);
+            $this->db->execute();
+
+            $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
+            $this->db->bind(':id', $id);
+            $this->db->bind(':cid', Session::get('company_id') ?: 1);
+            $this->db->execute();
 
             $this->db->commit();
             return true;
-        } catch (Exception $e) {
-            $this->db->rollBack();
+        } catch (Throwable $e) {
+            try { $this->db->rollBack(); } catch (Throwable $t) {}
             return false;
         }
-    }
-    
-    public function getExpenseById(int $id): ?object {
-        $sql = "SELECT * FROM {$this->table} WHERE id = :id AND company_id = :cid";
-        $this->db->query($sql);
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        return $this->db->single();
-    }
-    
-    public function updateExpense(int $id, array $data): bool {
-        $sql = "UPDATE {$this->table} SET category_id = :category_id, amount = :amount, expense_date = :expense_date, reference_no = :reference_no, notes = :notes WHERE id = :id AND company_id = :cid";
-        $this->db->query($sql);
-        $this->db->bind(':category_id', $data['category_id'], PDO::PARAM_INT);
-        $this->db->bind(':amount', $data['amount']);
-        $this->db->bind(':expense_date', $data['expense_date']);
-        $this->db->bind(':reference_no', $data['reference_no']);
-        $this->db->bind(':notes', $data['notes']);
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        return $this->db->execute();
-    }
-    
-    public function deleteExpense(int $id): bool {
-        $this->db->query("DELETE FROM {$this->table} WHERE id = :id AND company_id = :cid");
-        $this->db->bind(':id', $id, PDO::PARAM_INT);
-        $this->db->bind(':cid', Session::get('company_id'), PDO::PARAM_INT);
-        return $this->db->execute();
     }
 }

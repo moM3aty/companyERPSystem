@@ -48,15 +48,15 @@ class Report extends Model {
         $companyId = Session::get('company_id') ?: 1;
         
         $this->ensureTableExists('employees');
-        $this->ensureTableExists('employee_contracts');
         
-        $this->db->query("SELECT COUNT(*) as count FROM employees WHERE company_id = :cid AND status = 'active'");
+        $this->db->query("SELECT COUNT(*) as count FROM employees WHERE company_id = :cid AND employment_status = 'Active'");
         $this->db->bind(':cid', $companyId);
         $activeEmployees = $this->db->single()->count ?? 0;
 
-        $this->db->query("SELECT SUM(basic_salary) as total_basic, SUM(allowances) as total_allowances 
-                          FROM employee_contracts 
-                          WHERE company_id = :cid AND status = 'active'");
+        $this->db->query("SELECT SUM(basic_salary) as total_basic, 
+                                 SUM(housing_allowance + transport_allowance + other_allowances) as total_allowances 
+                          FROM employees 
+                          WHERE company_id = :cid AND employment_status = 'Active'");
         $this->db->bind(':cid', $companyId);
         $payroll = $this->db->single();
         
@@ -75,16 +75,12 @@ class Report extends Model {
     // 3. تقارير المشتريات (Purchases)
     // ==========================================
     public function getPurchasesReport($startDate, $endDate) {
-        // حماية مسبقة للجداول والأعمدة
-        $this->ensureTableExists('purchases');
-        $this->ensureTableExists('purchase_returns');
-        
+        $this->ensureTableExists('purchase_invoices');
         $companyId = Session::get('company_id') ?: 1;
 
-        // إجمالي المشتريات (يستثني الملغي)
         $sql = "SELECT COUNT(id) as total_orders, 
-                SUM(CASE WHEN status != 'cancelled' THEN total_amount ELSE 0 END) as total_purchases 
-                FROM purchases 
+                SUM(grand_total) as total_purchases 
+                FROM purchase_invoices 
                 WHERE company_id = :cid AND DATE(created_at) BETWEEN :start AND :end";
         $this->db->query($sql);
         $this->db->bind(':cid', $companyId);
@@ -92,35 +88,24 @@ class Report extends Model {
         $this->db->bind(':end', $endDate . ' 23:59:59');
         $purchases = clone $this->db->single();
 
-        // إجمالي المرتجعات
-        $sqlRet = "SELECT COUNT(id) as total_returns, 
-                   SUM(CASE WHEN status != 'cancelled' THEN total_amount ELSE 0 END) as total_returned_amount 
-                   FROM purchase_returns 
-                   WHERE company_id = :cid AND return_date BETWEEN :start AND :end";
-        $this->db->query($sqlRet);
-        $this->db->bind(':cid', $companyId);
-        $this->db->bind(':start', $startDate);
-        $this->db->bind(':end', $endDate);
-        $returns = clone $this->db->single();
-
         return [
             'total_orders' => $purchases->total_orders ?? 0,
             'total_purchases' => $purchases->total_purchases ?? 0,
-            'total_returns' => $returns->total_returns ?? 0,
-            'total_returned_amount' => $returns->total_returned_amount ?? 0,
-            'net_purchases' => ($purchases->total_purchases ?? 0) - ($returns->total_returned_amount ?? 0)
+            'total_returns' => 0,
+            'total_returned_amount' => 0,
+            'net_purchases' => $purchases->total_purchases ?? 0
         ];
     }
 
     public function getSupplierReport($startDate, $endDate) {
-        $this->ensureTableExists('purchases');
+        $this->ensureTableExists('purchase_invoices');
         
-        $sql = "SELECT supplier_name, COUNT(id) as order_count, SUM(total_amount) as total_amount 
-                FROM purchases 
-                WHERE company_id = :cid AND status != 'cancelled' 
-                  AND supplier_name IS NOT NULL AND supplier_name != '' 
-                  AND DATE(created_at) BETWEEN :start AND :end
-                GROUP BY supplier_name 
+        $sql = "SELECT s.company_name as supplier_name, COUNT(pi.id) as order_count, SUM(pi.grand_total) as total_amount 
+                FROM purchase_invoices pi
+                JOIN suppliers s ON pi.supplier_id = s.id
+                WHERE pi.company_id = :cid 
+                  AND DATE(pi.created_at) BETWEEN :start AND :end
+                GROUP BY s.id, s.company_name 
                 ORDER BY total_amount DESC 
                 LIMIT 10";
                 
@@ -132,49 +117,48 @@ class Report extends Model {
     }
 
     // ==========================================
-    // 4. دالة الحماية والترقية الديناميكية 
+    // 4. القوائم المالية (Income Statement & Balance Sheet)
+    // ==========================================
+    public function getIncomeStatement($startDate, $endDate) {
+        $companyId = Session::get('company_id') ?: 1;
+        
+        // إجمالي الإيرادات (دائن - مدين)
+        $this->db->query("SELECT SUM(credit - debit) as total_revenue FROM journal_lines jl JOIN accounting_accounts a ON jl.account_id = a.id JOIN accounting_journals je ON jl.journal_id = je.id WHERE a.account_type = 'Revenue' AND je.company_id = :cid AND je.date BETWEEN :start AND :end");
+        $this->db->bind(':cid', $companyId);
+        $this->db->bind(':start', $startDate);
+        $this->db->bind(':end', $endDate);
+        $revenue = $this->db->single()->total_revenue ?? 0;
+
+        // إجمالي المصروفات (مدين - دائن)
+        $this->db->query("SELECT SUM(debit - credit) as total_expense FROM journal_lines jl JOIN accounting_accounts a ON jl.account_id = a.id JOIN accounting_journals je ON jl.journal_id = je.id WHERE a.account_type = 'Expense' AND je.company_id = :cid AND je.date BETWEEN :start AND :end");
+        $this->db->bind(':cid', $companyId);
+        $this->db->bind(':start', $startDate);
+        $this->db->bind(':end', $endDate);
+        $expenses = $this->db->single()->total_expense ?? 0;
+
+        $netIncome = $revenue - $expenses;
+
+        return [
+            'revenue' => $revenue,
+            'expenses' => $expenses,
+            'net_income' => $netIncome
+        ];
+    }
+    
+    public function getAccountBalancesByType($type) {
+        $this->db->query("SELECT * FROM accounting_accounts WHERE account_type = :type AND (company_id = :cid OR company_id IS NULL) ORDER BY account_code ASC");
+        $this->db->bind(':type', $type);
+        $this->db->bind(':cid', Session::get('company_id') ?: 1);
+        return $this->db->resultSet();
+    }
+
+    // ==========================================
+    // 5. الحماية
     // ==========================================
     private function ensureTableExists($tableName) {
         try {
-            // 1. إنشاء الجدول إن لم يكن موجوداً
             $this->db->query("CREATE TABLE IF NOT EXISTS `{$tableName}` (`id` int(11) NOT NULL AUTO_INCREMENT, PRIMARY KEY (`id`))");
             $this->db->execute();
-            
-            // 2. فحص وتوليد الأعمدة المهمة لتقارير المشتريات لتجنب الـ Fatal Errors
-            if (in_array($tableName, ['purchases', 'purchase_returns'])) {
-                
-                $columnsNeeded = [
-                    'company_id'    => 'INT DEFAULT 1',
-                    'total_amount'  => 'DECIMAL(15,2) DEFAULT 0.00',
-                    'status'        => "VARCHAR(50) DEFAULT 'approved'",
-                    'supplier_name' => "VARCHAR(255) DEFAULT NULL"
-                ];
-
-                foreach($columnsNeeded as $col => $def) {
-                    $this->db->query("SHOW COLUMNS FROM `{$tableName}` LIKE '{$col}'");
-                    if (empty($this->db->resultSet())) {
-                        $this->db->query("ALTER TABLE `{$tableName}` ADD `{$col}` {$def}");
-                        $this->db->execute();
-                    }
-                }
-
-                // إضافة أعمدة التواريخ بناءً على نوع الجدول
-                if ($tableName === 'purchases') {
-                    $this->db->query("SHOW COLUMNS FROM `{$tableName}` LIKE 'created_at'");
-                    if (empty($this->db->resultSet())) {
-                        $this->db->query("ALTER TABLE `{$tableName}` ADD `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP");
-                        $this->db->execute();
-                    }
-                } else {
-                    $this->db->query("SHOW COLUMNS FROM `{$tableName}` LIKE 'return_date'");
-                    if (empty($this->db->resultSet())) {
-                        $this->db->query("ALTER TABLE `{$tableName}` ADD `return_date` DATE DEFAULT NULL");
-                        $this->db->execute();
-                    }
-                }
-            }
-        } catch (Exception $e) {
-            // صمت لتجنب توقف النظام في حال وجود أخطاء في الصلاحيات
-        }
+        } catch (Exception $e) {}
     }
 }

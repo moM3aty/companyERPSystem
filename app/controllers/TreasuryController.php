@@ -4,105 +4,75 @@
 class TreasuryController extends Controller {
     
     private $treasuryModel;
+    private $accountModel;
 
     public function __construct() {
         $this->requireAuth();
         $this->treasuryModel = $this->model('Treasury');
+        if (file_exists('../app/models/Account.php')) $this->accountModel = $this->model('Account');
     }
 
     public function index() {
         $treasuries = $this->treasuryModel->getAllTreasuries();
-        $transactions = $this->treasuryModel->getTransactions();
-        
         $data = [
-            'title' => 'الخزينة والبنوك',
+            'title' => 'إدارة الصناديق والبنوك',
             'treasuries' => $treasuries,
-            'transactions' => $transactions,
-            'breadcrumb' => [
-                ['label' => 'المالية', 'url' => '#'],
-                ['label' => 'الخزينة', 'url' => 'treasury/index']
-            ]
+            'breadcrumb' => [['label' => 'المالية', 'url' => '#'], ['label' => 'الصناديق والبنوك', 'url' => 'treasury/index']]
         ];
-        
-        ob_start();
-        $this->view('treasury/index', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('treasury/index', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
     public function create() {
-        $this->requireRole('admin');
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             $data = [
                 'name' => trim($_POST['name'] ?? ''),
-                'type' => trim($_POST['type'] ?? 'cash'),
-                'balance' => (float)($_POST['balance'] ?? 0)
+                'type' => trim($_POST['type'] ?? 'Cash'),
+                'account_number' => trim($_POST['account_number'] ?? ''),
+                'currency' => trim($_POST['currency'] ?? 'SAR'),
+                'opening_balance' => (float)($_POST['opening_balance'] ?? 0),
+                'chart_account_id' => !empty($_POST['chart_account_id']) ? (int)$_POST['chart_account_id'] : null
             ];
 
-            if (!empty($data['name'])) {
-                if ($this->treasuryModel->createTreasury($data)) {
-                    $this->setFlash('success', 'تم إضافة الخزنة بنجاح.');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء الإضافة.');
-                }
+            if (empty($data['name'])) {
+                $this->setFlash('error', 'الرجاء إدخال اسم الخزنة/البنك.');
             } else {
-                $this->setFlash('error', 'اسم الخزنة مطلوب.');
-            }
-        }
-        $this->redirect('treasury/index');
-    }
-
-    public function delete(string $id = '') {
-        $this->requireRole('admin');
-        if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            try {
-                if ($this->treasuryModel->deleteTreasury((int)$id)) {
-                    $this->setFlash('success', 'تم حذف الخزنة بنجاح.');
-                } else {
-                    $this->setFlash('error', 'فشل عملية الحذف.');
+                if ($this->treasuryModel->createTreasury($data)) {
+                    $this->setFlash('success', 'تم إنشاء الصندوق المحاسبي بنجاح.');
+                    $this->redirect('treasury/index'); return;
                 }
-            } catch(PDOException $e) {
-                $this->setFlash('error', 'لا يمكن حذف الخزنة لوجود حركات مالية مرتبطة بها.');
             }
         }
-        $this->redirect('treasury/index');
+        $accounts = $this->accountModel ? $this->accountModel->getAllAccounts() : [];
+        $data = ['title' => 'إضافة خزنة / بنك', 'accounts' => $accounts];
+        ob_start(); $this->view('treasury/create', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    /* دالة إنشاء حركة مالية (الإيداع والسحب) التي كانت تسبب الخطأ */
-    public function createTransaction() {
+    public function edit($id = '') {
+        if (empty($id) || !is_numeric($id)) $this->redirect('treasury/index');
+        $treasury = $this->treasuryModel->getTreasuryById((int)$id);
+        if (!$treasury) $this->redirect('treasury/index');
+
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            
             $data = [
-                'treasury_id' => (int)($_POST['treasury_id'] ?? 0),
-                'type' => trim($_POST['type'] ?? 'deposit'),
-                'amount' => (float)($_POST['amount'] ?? 0),
-                'transaction_date' => trim($_POST['transaction_date'] ?? date('Y-m-d')),
-                'reference' => trim($_POST['reference'] ?? ''),
-                'notes' => trim($_POST['notes'] ?? '')
+                'name' => trim($_POST['name'] ?? ''),
+                'type' => trim($_POST['type'] ?? 'Cash'),
+                'account_number' => trim($_POST['account_number'] ?? ''),
+                'currency' => trim($_POST['currency'] ?? 'SAR'),
+                'chart_account_id' => !empty($_POST['chart_account_id']) ? (int)$_POST['chart_account_id'] : null
             ];
 
-            if ($data['treasury_id'] > 0 && $data['amount'] > 0) {
-                // التحقق من الرصيد في حالة السحب
-                if ($data['type'] === 'withdrawal') {
-                    $treasury = $this->treasuryModel->getTreasuryById($data['treasury_id']);
-                    if ($treasury && $treasury->balance < $data['amount']) {
-                        $this->setFlash('error', 'الرصيد الحالي في الخزنة لا يكفي لعملية السحب.');
-                        $this->redirect('treasury/index');
-                        return;
-                    }
-                }
-
-                if ($this->treasuryModel->createTransaction($data)) {
-                    $this->setFlash('success', 'تم تسجيل الحركة المالية وتحديث الرصيد بنجاح.');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء حفظ العملية.');
-                }
-            } else {
-                $this->setFlash('error', 'تأكد من اختيار الخزنة وإدخال مبلغ صحيح.');
+            if ($this->treasuryModel->updateTreasury((int)$id, $data)) {
+                $this->setFlash('success', 'تم تحديث بيانات الصندوق.');
+                $this->redirect('treasury/index'); return;
             }
         }
-        $this->redirect('treasury/index');
+        $accounts = $this->accountModel ? $this->accountModel->getAllAccounts() : [];
+        $data = ['title' => 'تعديل الخزنة/البنك', 'treasury' => $treasury, 'accounts' => $accounts];
+        ob_start(); $this->view('treasury/edit', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 }

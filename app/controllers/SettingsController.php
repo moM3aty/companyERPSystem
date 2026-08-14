@@ -4,18 +4,20 @@
 class SettingsController extends Controller {
     
     public function __construct() {
-        $this->requireRole('admin');
+        // حماية الوصول
+        $this->requireAnyRole(['admin', 'super_admin', 'manager']);
     }
 
     public function index() {
-        $accountingModel = $this->model('Accounting');
+        // إذا كان الموديل Setting الذي أنشأناه للتو موجوداً، نستخدمه، وإلا نستخدم Accounting القديم
+        $settingModel = file_exists('../app/models/Setting.php') ? $this->model('Setting') : $this->model('Accounting');
         $userModel = $this->model('User');
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $action = $_POST['form_action'] ?? '';
             switch ($action) {
                 case 'save_company':
-                    $this->saveCompanySettings($accountingModel);
+                    $this->saveCompanySettings($settingModel);
                     break;
                 case 'save_profile':
                     $this->saveProfile($userModel);
@@ -29,19 +31,36 @@ class SettingsController extends Controller {
             }
         }
 
+        // جلب الإعدادات (مع مراعاة التوافقية مع الموديل الجديد والقديم)
         $settings = [];
-        $allRows = $accountingModel->getAllSettings();
-        foreach ($allRows as $row) {
-            $settings[$row->setting_key] = $row->setting_value;
+        if (method_exists($settingModel, 'getAllSettingsArray')) {
+            $settings = $settingModel->getAllSettingsArray();
+        } elseif (method_exists($settingModel, 'getAllSettings')) {
+            $allRows = $settingModel->getAllSettings();
+            if (is_array($allRows)) {
+                // إذا كانت المصفوفة مسترجعة مباشرة من الموديل الجديد
+                if (isset($allRows['company_name'])) {
+                    $settings = $allRows;
+                } else {
+                    foreach ($allRows as $row) {
+                        $settings[$row->setting_key] = $row->setting_value;
+                    }
+                }
+            }
         }
 
         $settings = array_merge([
-            'company_name'  => 'شركتي',
+            'company_name'  => 'شركة نور',
             'company_email' => 'info@company.com',
             'company_phone' => '',
             'vat_number'    => '',
-            'currency'      => 'ر.س',
+            'commercial_registration' => '',
+            'company_address' => '',
+            'currency'      => 'SAR',
             'tax_rate'      => '15',
+            'fiscal_year_start' => date('Y-01-01'),
+            'fiscal_year_end' => date('Y-12-31'),
+            'accounting_basis' => 'Accrual',
             'company_logo'  => ''
         ], $settings);
 
@@ -52,23 +71,32 @@ class SettingsController extends Controller {
             'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'N/A',
             'db_host'        => DB_HOST,
             'db_name'        => DB_NAME,
-            'app_version'    => APP_VERSION,
+            'app_version'    => APP_VERSION ?? '1.0',
             'max_upload'     => ini_get('upload_max_filesize'),
             'memory_limit'   => ini_get('memory_limit'),
             'timezone'       => date_default_timezone_get(),
         ];
 
-        $employeeModel = $this->model('Employee');
-        $productModel  = $this->model('Product');
+        // System Stats
+        $employeeModel = file_exists('../app/models/Employee.php') ? $this->model('Employee') : null;
+        $productModel  = file_exists('../app/models/Product.php') ? $this->model('Product') : null;
+        $db = Database::getInstance();
+        
+        $db->query("SELECT COUNT(*) as c FROM sales_invoices");
+        $invCount = $db->single()->c ?? 0;
+        
+        $db->query("SELECT COUNT(*) as c FROM expenses");
+        $expCount = $db->single()->c ?? 0;
+
         $systemStats = [
-            'employees'   => $employeeModel->count(),
-            'products'    => $productModel->count(),
-            'invoices'    => $accountingModel->getInvoiceCount(),
-            'expenses'    => count($accountingModel->getExpenses()),
+            'employees'   => $employeeModel ? $employeeModel->count() : 0,
+            'products'    => $productModel ? $productModel->count() : 0,
+            'invoices'    => $invCount,
+            'expenses'    => $expCount,
         ];
 
         $data = [
-            'title'       => 'إعدادات النظام',
+            'title'       => 'إعدادات النظام والشركة',
             'settings'    => $settings,
             'user'        => $user,
             'system_info' => $systemInfo,
@@ -85,44 +113,56 @@ class SettingsController extends Controller {
     private function saveCompanySettings($model) {
         $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 
-        $model->updateSetting('company_name', trim($_POST['company_name'] ?? ''));
-        $model->updateSetting('company_email', trim($_POST['company_email'] ?? ''));
-        $model->updateSetting('company_phone', trim($_POST['company_phone'] ?? ''));
-        $model->updateSetting('vat_number', trim($_POST['vat_number'] ?? ''));
-        $model->updateSetting('currency', trim($_POST['currency'] ?? 'ر.س'));
-        $model->updateSetting('tax_rate', trim($_POST['tax_rate'] ?? '15'));
+        $settingsData = [
+            'company_name'  => trim($_POST['company_name'] ?? ''),
+            'company_email' => trim($_POST['company_email'] ?? ''),
+            'company_phone' => trim($_POST['company_phone'] ?? ''),
+            'vat_number'    => trim($_POST['vat_number'] ?? ''),
+            'commercial_registration' => trim($_POST['commercial_registration'] ?? ''),
+            'company_address' => trim($_POST['company_address'] ?? ''),
+            'currency'      => trim($_POST['currency'] ?? 'SAR'),
+            'tax_rate'      => trim($_POST['tax_rate'] ?? '15'),
+            'fiscal_year_start' => trim($_POST['fiscal_year_start'] ?? date('Y-01-01')),
+            'fiscal_year_end' => trim($_POST['fiscal_year_end'] ?? date('Y-12-31')),
+            'accounting_basis' => trim($_POST['accounting_basis'] ?? 'Accrual')
+        ];
 
-        // إصلاح مسار رفع الصورة (بدون سلاش في البداية لتسهيل القراءة في الـ View)
-       if (isset($_FILES['company_logo']) && $_FILES['company_logo']['error'] === UPLOAD_ERR_OK) {
-    
-    // إنشاء مجلد الرفع إذا لم يكن موجوداً
-    $uploadDir = dirname(APP_ROOT) . '/public/uploads/logos/';
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
+        // رفع الشعار (Logo)
+        if (isset($_FILES['company_logo']) && $_FILES['company_logo']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = dirname(APP_ROOT) . '/public/uploads/logos/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
 
-    $fileTmpPath = $_FILES['company_logo']['tmp_name'];
-    $fileName = $_FILES['company_logo']['name'];
-    $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    
-    // تأمين الامتداد
-    $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
-    if (in_array($fileExtension, $allowedExts)) {
-        
-        $newFileName = 'logo_' . Session::get('company_id') . '_' . time() . '.' . $fileExtension;
-        $destPath = $uploadDir . $newFileName;
-        
-        if (move_uploaded_file($fileTmpPath, $destPath)) {
-            // تحديث قيمة الشعار في مصفوفة الإعدادات ليتم حفظها في الداتابيز
-            // المسار المحفوظ في الداتابيز سيكون هكذا:
-            $settingsData['company_logo'] = 'uploads/logos/' . $newFileName; 
+            $fileTmpPath = $_FILES['company_logo']['tmp_name'];
+            $fileName = $_FILES['company_logo']['name'];
+            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            
+            $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
+            if (in_array($fileExtension, $allowedExts)) {
+                $newFileName = 'logo_' . (Session::get('company_id') ?: 1) . '_' . time() . '.' . $fileExtension;
+                $destPath = $uploadDir . $newFileName;
+                
+                if (move_uploaded_file($fileTmpPath, $destPath)) {
+                    $settingsData['company_logo'] = 'uploads/logos/' . $newFileName; 
+                }
+            } else {
+                $this->setFlash('error', 'صيغة الصورة غير مدعومة.');
+            }
         }
-    } else {
-        $this->setFlash('error', 'صيغة الصورة غير مدعومة.');
-    }
-}
 
-        $this->setFlash('success', 'تم حفظ إعدادات الشركة بنجاح');
+        // الحفظ بناءً على نوع الموديل المتاح
+        if (method_exists($model, 'saveSettings')) {
+            // الموديل الجديد
+            $model->saveSettings($settingsData);
+        } elseif (method_exists($model, 'updateSetting')) {
+            // الموديل القديم
+            foreach ($settingsData as $key => $val) {
+                $model->updateSetting($key, $val);
+            }
+        }
+
+        $this->setFlash('success', 'تم حفظ إعدادات الشركة والنظام المالي بنجاح');
         $this->redirect('settings/index');
     }
 

@@ -168,7 +168,7 @@ $sysStats = $data['system_stats'] ?? [];
         background-repeat: no-repeat;
         background-position: left 12px center;
         background-size: 16px;
-        padding-left: 40px; /* Adjust padding for icon */
+        padding-left: 40px;
     }
 
     .s-actions { 
@@ -327,13 +327,20 @@ $sysStats = $data['system_stats'] ?? [];
     <div class="settings-header d-flex justify-content-between align-items-center">
         <div>
             <h3><i class="fas fa-gear text-primary me-2"></i> <?php echo $pageTitle; ?></h3>
-            <p>تخصيص خيارات النظام، بيانات المؤسسة، وإعدادات الأمان.</p>
+            <p>تخصيص خيارات النظام، بيانات المؤسسة، والإعدادات المالية.</p>
         </div>
     </div>
+
+    <?php $flash = Session::getFlash(); if ($flash): ?>
+        <div class="flash-msg flash-<?php echo $flash['type']; ?> mb-4" style="padding:15px; border-radius:8px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0;">
+            <i class="fas fa-check-circle me-2"></i> <?php echo htmlspecialchars($flash['message']); ?>
+        </div>
+    <?php endif; ?>
 
     <!-- شريط التبويبات -->
     <div class="settings-tabs">
         <button class="tab-btn active" data-tab="company"><i class="fas fa-building"></i> بيانات المؤسسة</button>
+        <button class="tab-btn" data-tab="finance"><i class="fas fa-calculator"></i> الإعدادات المحاسبية</button>
         <button class="tab-btn" data-tab="profile"><i class="fas fa-user-gear"></i> الملف الشخصي</button>
         <button class="tab-btn" data-tab="security"><i class="fas fa-shield-halved"></i> الأمان والمرور</button>
         <button class="tab-btn" data-tab="system"><i class="fas fa-server"></i> حالة النظام</button>
@@ -353,23 +360,22 @@ $sysStats = $data['system_stats'] ?? [];
                 </div>
                 <div class="settings-card-body">
                     <div class="settings-grid">
-                         <div class="form-group border-top pt-4 mt-2">
-                    <label class="form-label">شعار الشركة (Logo)</label>
-                    <div class="d-flex align-items-center gap-3">
-                        <input type="file" name="company_logo" class="form-control" accept="image/*">
-                        
-                        <?php if(!empty($sysData['company_logo'])): ?>
-                            <div style="flex-shrink: 0; width: 60px; height: 60px; border-radius: 8px; border: 1px solid var(--border-color); padding: 4px; background: #fff;">
-                                <img src="<?php echo URLROOT . '/' . ltrim($sysData['company_logo'], '/'); ?>" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;">
+                        <div class="s-group full border-bottom pb-4 mb-2">
+                            <label class="s-label">شعار الشركة (Logo)</label>
+                            <div class="d-flex align-items-center gap-3">
+                                <input type="file" name="company_logo" class="form-control" accept="image/*" style="max-width: 400px;">
+                               
                             </div>
-                        <?php endif; ?>
-                    </div>
-                    <small class="text-muted mt-2 d-block">يفضل أن يكون الشعار بصيغة PNG وبخلفية شفافة.</small>
-                </div>
+                            <small class="text-muted mt-2 d-block">يفضل أن يكون الشعار بصيغة PNG وبخلفية شفافة.</small>
+                        </div>
 
                         <div class="s-group">
                             <label class="s-label">الاسم التجاري <span style="color:#ef4444;">*</span></label>
-                            <input type="text" name="company_name" class="s-input" value="<?php echo htmlspecialchars($settings['company_name'] ?? ''); ?>" required placeholder="اسم الشركة الرسمي">
+                            <input type="text" name="company_name" class="s-input fw-bold" value="<?php echo htmlspecialchars($settings['company_name'] ?? ''); ?>" required placeholder="اسم الشركة الرسمي">
+                        </div>
+                        <div class="s-group">
+                            <label class="s-label">الكيان القانوني</label>
+                            <input type="text" name="commercial_registration" class="s-input" value="<?php echo htmlspecialchars($settings['commercial_registration'] ?? ''); ?>" placeholder="السجل التجاري أو الكيان">
                         </div>
                         <div class="s-group">
                             <label class="s-label">البريد الإلكتروني الرسمي</label>
@@ -379,39 +385,78 @@ $sysStats = $data['system_stats'] ?? [];
                             <label class="s-label">رقم هاتف التواصل</label>
                             <input type="text" name="company_phone" class="s-input" value="<?php echo htmlspecialchars($settings['company_phone'] ?? ''); ?>" style="direction:ltr;text-align:right;" placeholder="+966 50 000 0000">
                         </div>
-                        
-                        <!-- الحقل الجديد للرقم الضريبي -->
                         <div class="s-group full border-top pt-4 mt-2">
-                            <label class="s-label"><i class="fas fa-file-invoice text-success me-1"></i> الرقم الضريبي (VAT Number) لمتطلبات الفاتورة الإلكترونية</label>
-                            <input type="text" name="vat_number" class="s-input font-monospace fw-bold" value="<?php echo htmlspecialchars($settings['vat_number'] ?? ''); ?>" style="direction:ltr;text-align:right;" placeholder="أدخل الرقم الضريبي المكون من 15 خانة">
-                            <div style="font-size:12px; color:#64748b; margin-top:6px;"><i class="fas fa-info-circle"></i> هذا الرقم سيتم استخدامه في توليد رمز الـ QR Code الخاص بالفواتير المعتمدة.</div>
+                            <label class="s-label"><i class="fas fa-file-invoice text-success me-1"></i> الرقم الضريبي (VAT Number)</label>
+                            <input type="text" name="vat_number" class="s-input font-monospace fw-bold" value="<?php echo htmlspecialchars($settings['vat_number'] ?? ''); ?>" style="direction:ltr;text-align:right; border-color:#10b981;" placeholder="أدخل الرقم الضريبي للشركة">
+                            <div style="font-size:12px; color:#64748b; margin-top:6px;">هذا الرقم سيظهر في الفواتير لمتطلبات هيئة الزكاة والضريبة.</div>
                         </div>
-
-                        <div class="s-group">
-                            <label class="s-label">العملة الافتراضية <span style="color:#ef4444;">*</span></label>
-                            <select name="currency" class="s-input">
-                                <?php $curr = $settings['currency'] ?? 'ر.س'; ?>
-                                <option value="ر.س" <?php echo $curr === 'ر.س' ? 'selected' : ''; ?>>ريال سعودي (ر.س)</option>
-                                <option value="ج.م" <?php echo $curr === 'ج.م' ? 'selected' : ''; ?>>جنيه مصري (ج.م)</option>
-                                <option value="د.إ" <?php echo $curr === 'د.إ' ? 'selected' : ''; ?>>درهم إماراتي (د.إ)</option>
-                                <option value="$" <?php echo $curr === '$' ? 'selected' : ''; ?>>دولار أمريكي ($)</option>
-                            </select>
-                        </div>
-                        <div class="s-group full border-top pt-4 mt-2" style="border-top: 1px dashed #cbd5e1;">
-                            <label class="s-label">نسبة ضريبة القيمة المضافة (VAT %) <span style="color:#ef4444;">*</span></label>
-                            <input type="number" name="tax_rate" class="s-input font-monospace fw-bold" value="<?php echo htmlspecialchars($settings['tax_rate'] ?? '15'); ?>" min="0" max="100" step="0.1" style="direction:ltr;text-align:right; font-size: 18px; color: #0ea5e9;" required>
-                            <div style="font-size:12px; color:#64748b; margin-top:6px;"><i class="fas fa-info-circle"></i> يتم تطبيق هذه النسبة بشكل افتراضي عند إنشاء فواتير المبيعات وعروض الأسعار.</div>
+                        <div class="s-group full">
+                            <label class="s-label">العنوان الوطني</label>
+                            <textarea name="company_address" class="s-input" rows="2" placeholder="المدينة، الحي، الشارع..."><?php echo htmlspecialchars($settings['company_address'] ?? ''); ?></textarea>
                         </div>
                     </div>
                 </div>
                 <div class="s-actions">
-                    <button type="submit" class="btn-save"><i class="fas fa-save"></i> حفظ إعدادات المؤسسة</button>
+                    <button type="submit" class="btn-save"><i class="fas fa-save"></i> حفظ بيانات المؤسسة</button>
                 </div>
             </div>
         </form>
     </div>
 
-    <!-- تبويب 2: الملف الشخصي -->
+    <!-- تبويب 2: الإعدادات المحاسبية (الجديد) -->
+    <div class="tab-panel" id="panel-finance">
+        <form action="<?php echo URLROOT; ?>/settings/index" method="POST">
+            <input type="hidden" name="form_action" value="save_company">
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div class="sch-icon" style="background:#fef3c7; color:#d97706;"><i class="fas fa-calculator"></i></div>
+                    <div>
+                        <h3>الإعدادات المالية والمحاسبية</h3>
+                        <p>تكوين العملة، الضرائب، والسنة المالية المعتمدة في النظام.</p>
+                    </div>
+                </div>
+                <div class="settings-card-body">
+                    <div class="settings-grid">
+                        <div class="s-group">
+                            <label class="s-label">العملة الافتراضية (Currency) <span style="color:#ef4444;">*</span></label>
+                            <select name="currency" class="s-input fw-bold text-primary">
+                                <?php $curr = $settings['currency'] ?? 'SAR'; ?>
+                                <option value="SAR" <?php echo $curr === 'SAR' ? 'selected' : ''; ?>>ريال سعودي (SAR)</option>
+                                <option value="EGP" <?php echo $curr === 'EGP' ? 'selected' : ''; ?>>جنيه مصري (EGP)</option>
+                                <option value="AED" <?php echo $curr === 'AED' ? 'selected' : ''; ?>>درهم إماراتي (AED)</option>
+                                <option value="USD" <?php echo $curr === 'USD' ? 'selected' : ''; ?>>دولار أمريكي (USD)</option>
+                            </select>
+                        </div>
+                        <div class="s-group">
+                            <label class="s-label">نسبة ضريبة القيمة المضافة (VAT %) <span style="color:#ef4444;">*</span></label>
+                            <input type="number" name="tax_rate" class="s-input font-monospace fw-black text-danger" value="<?php echo htmlspecialchars($settings['tax_rate'] ?? '15'); ?>" min="0" max="100" step="0.1" style="direction:ltr;text-align:right;" required>
+                        </div>
+                        <div class="s-group border-top pt-4 mt-2">
+                            <label class="s-label text-success">بداية السنة المالية (Fiscal Year Start)</label>
+                            <input type="date" name="fiscal_year_start" class="s-input fw-bold" value="<?php echo htmlspecialchars($settings['fiscal_year_start'] ?? date('Y-01-01')); ?>" required>
+                        </div>
+                        <div class="s-group border-top pt-4 mt-2">
+                            <label class="s-label text-danger">نهاية السنة المالية (Fiscal Year End)</label>
+                            <input type="date" name="fiscal_year_end" class="s-input fw-bold" value="<?php echo htmlspecialchars($settings['fiscal_year_end'] ?? date('Y-12-31')); ?>" required>
+                        </div>
+                        <div class="s-group full">
+                            <label class="s-label">الأساس المحاسبي (Accounting Basis)</label>
+                            <select name="accounting_basis" class="s-input fw-bold">
+                                <?php $basis = $settings['accounting_basis'] ?? 'Accrual'; ?>
+                                <option value="Accrual" <?php echo $basis === 'Accrual' ? 'selected' : ''; ?>>أساس الاستحقاق (Accrual Basis) - موصى به للشركات</option>
+                                <option value="Cash" <?php echo $basis === 'Cash' ? 'selected' : ''; ?>>الأساس النقدي (Cash Basis) - للأنشطة البسيطة</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="s-actions">
+                    <button type="submit" class="btn-save" style="background-color: #d97706;"><i class="fas fa-check"></i> اعتماد الإعدادات المالية</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- تبويب 3: الملف الشخصي -->
     <div class="tab-panel" id="panel-profile">
         <form action="<?php echo URLROOT; ?>/settings/index" method="POST">
             <input type="hidden" name="form_action" value="save_profile">
@@ -451,7 +496,7 @@ $sysStats = $data['system_stats'] ?? [];
         </form>
     </div>
 
-    <!-- تبويب 3: الأمان وكلمة المرور -->
+    <!-- تبويب 4: الأمان وكلمة المرور -->
     <div class="tab-panel" id="panel-security">
         <form action="<?php echo URLROOT; ?>/settings/index" method="POST" id="passwordForm">
             <input type="hidden" name="form_action" value="change_password">
@@ -484,7 +529,7 @@ $sysStats = $data['system_stats'] ?? [];
                             <label class="s-label" style="font-size: 16px;"><i class="fas fa-mobile-screen text-primary me-2"></i> المصادقة الثنائية (2FA) - <span class="badge badge-info ms-2" style="font-size:10px;">اختياري</span></label>
                             <div class="toggle-label-wrapper mt-3 p-4 rounded" style="background: #f8fafc; border: 1px solid #e2e8f0;">
                                 <label class="toggle-switch">
-                                    <input type="checkbox" name="enable_2fa" value="1" onchange="alert('تنبيه: سيتم تفعيل طبقة الحماية الإضافية. سنرسل رمز تحقق (OTP) إلى بريدك الإلكتروني في كل مرة تحاول فيها تسجيل الدخول.');">
+                                    <input type="checkbox" name="enable_2fa" value="1" onchange="alert('تنبيه: سيتم تفعيل طبقة الحماية الإضافية مستقبلاً. سيرسل النظام رمز تحقق لبريدك عند الدخول.');">
                                     <span class="slider"></span>
                                 </label>
                                 <div>
@@ -502,7 +547,7 @@ $sysStats = $data['system_stats'] ?? [];
         </form>
     </div>
 
-    <!-- تبويب 4: معلومات النظام -->
+    <!-- تبويب 5: معلومات النظام -->
     <div class="tab-panel" id="panel-system">
         <div class="settings-card">
             <div class="settings-card-header">
@@ -527,7 +572,7 @@ $sysStats = $data['system_stats'] ?? [];
                         <span class="font-monospace" style="color:#0f172a; font-weight:700;"><?php echo htmlspecialchars($sysInfo['db_name'] ?? ''); ?></span>
                     </div>
                     <div class="sys-info-item">
-                        <span style="color:#64748b; font-weight:600; font-size:14px;"><i class="fas fa-clock me-2"></i> المنطقة الزمنية (Timezone)</span>
+                        <span style="color:#64748b; font-weight:600; font-size:14px;"><i class="fas fa-clock me-2"></i> المنطقة الزمنية</span>
                         <span class="font-monospace" style="color:#0f172a; font-weight:700;"><?php echo htmlspecialchars($sysInfo['timezone'] ?? ''); ?></span>
                     </div>
                     <div class="sys-info-item">
@@ -535,7 +580,7 @@ $sysStats = $data['system_stats'] ?? [];
                         <span class="font-monospace text-primary fw-bold"><?php echo htmlspecialchars($sysInfo['max_upload'] ?? ''); ?></span>
                     </div>
                     <div class="sys-info-item">
-                        <span style="color:#64748b; font-weight:600; font-size:14px;"><i class="fas fa-memory me-2"></i> حد الذاكرة (Memory Limit)</span>
+                        <span style="color:#64748b; font-weight:600; font-size:14px;"><i class="fas fa-memory me-2"></i> حد الذاكرة (Memory)</span>
                         <span class="font-monospace text-primary fw-bold"><?php echo htmlspecialchars($sysInfo['memory_limit'] ?? ''); ?></span>
                     </div>
                 </div>
@@ -546,22 +591,22 @@ $sysStats = $data['system_stats'] ?? [];
                     <div class="sys-stat-card">
                         <i class="fas fa-users-gear" style="color: #8b5cf6;"></i>
                         <div class="stat-value font-monospace"><?php echo number_format($sysStats['employees'] ?? 0); ?></div>
-                        <div style="font-size:12px; color:#64748b; font-weight:600;">موظفين مسجلين</div>
+                        <div style="font-size:12px; color:#64748b; font-weight:600;">موظف مسجل</div>
                     </div>
                     <div class="sys-stat-card">
                         <i class="fas fa-boxes-stacked" style="color: #f59e0b;"></i>
                         <div class="stat-value font-monospace"><?php echo number_format($sysStats['products'] ?? 0); ?></div>
-                        <div style="font-size:12px; color:#64748b; font-weight:600;">أصناف بالمخزون</div>
+                        <div style="font-size:12px; color:#64748b; font-weight:600;">صنف بالمخزون</div>
                     </div>
                     <div class="sys-stat-card">
                         <i class="fas fa-file-invoice-dollar" style="color: #10b981;"></i>
                         <div class="stat-value font-monospace"><?php echo number_format($sysStats['invoices'] ?? 0); ?></div>
-                        <div style="font-size:12px; color:#64748b; font-weight:600;">فواتير مصدرة</div>
+                        <div style="font-size:12px; color:#64748b; font-weight:600;">فاتورة مبيعات</div>
                     </div>
                     <div class="sys-stat-card">
                         <i class="fas fa-money-bill-transfer" style="color: #ef4444;"></i>
                         <div class="stat-value font-monospace"><?php echo number_format($sysStats['expenses'] ?? 0); ?></div>
-                        <div style="font-size:12px; color:#64748b; font-weight:600;">عمليات صرف</div>
+                        <div style="font-size:12px; color:#64748b; font-weight:600;">عملية صرف مالي</div>
                     </div>
                 </div>
             </div>
@@ -573,11 +618,9 @@ $sysStats = $data['system_stats'] ?? [];
     // نظام التبويبات
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            // إزالة الكلاس النشط من جميع الأزرار واللوحات
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             
-            // إضافة الكلاس النشط للزر واللوحة المحددة
             this.classList.add('active');
             document.getElementById('panel-' + this.dataset.tab).classList.add('active');
         });

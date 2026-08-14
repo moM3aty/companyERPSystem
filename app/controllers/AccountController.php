@@ -3,150 +3,94 @@
 
 class AccountController extends Controller {
     
-    private Account $accountModel;
+    private $accountModel;
 
     public function __construct() {
-        $this->requireAnyRole(['admin', 'editor', 'manager']);
+        $this->requireAuth();
         $this->accountModel = $this->model('Account');
     }
 
-    public function index(): void {
-        $this->tree();
-    }
-
-    public function tree(): void {
-        $accounts = $this->accountModel->getChartOfAccounts();
+    public function index() {
+        $accounts = $this->accountModel->getAllAccounts();
         $data = [
-            'title' => 'دليل الحسابات المالي', 
+            'title' => 'دليل الحسابات (Chart of Accounts)',
             'accounts' => $accounts,
-            'breadcrumb' => [
-                ['label' => 'الحسابات والمالية', 'url' => '#'],
-                ['label' => 'شجرة الحسابات', 'url' => 'account/tree']
-            ]
+            'breadcrumb' => [['label' => 'المالية', 'url' => '#'], ['label' => 'دليل الحسابات', 'url' => 'account/index']]
         ];
-        
-        ob_start();
-        $this->view('account/tree', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('account/index', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function create(): void {
+    public function create() {
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            
             $data = [
-                'code'      => trim($_POST['code'] ?? ''),
-                'name'      => trim($_POST['name'] ?? ''),
-                'type'      => trim($_POST['type'] ?? ''),
-                'parent_id' => !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null,
-                'balance'   => (float)($_POST['balance'] ?? 0.00)
+                'account_code' => trim($_POST['account_code'] ?? ''),
+                'account_name' => trim($_POST['account_name'] ?? ''),
+                'account_type' => trim($_POST['account_type'] ?? ''),
+                'parent_id'    => trim($_POST['parent_id'] ?? ''),
+                'description'  => trim($_POST['description'] ?? '')
             ];
-
-            if (empty($data['code']) || empty($data['name']) || empty($data['type'])) {
-                $this->setFlash('error', 'يرجى تعبئة الحقول الأساسية.');
-                $this->redirect('account/create');
-            }
-
-            if ($this->accountModel->codeExists($data['code'])) {
-                $this->setFlash('error', 'رقم الحساب مسجل مسبقاً.');
-                $this->redirect('account/create');
-            }
-
+            
             if ($this->accountModel->createAccount($data)) {
                 $this->setFlash('success', 'تم إنشاء الحساب بنجاح.');
-                $this->redirect('account/tree');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء حفظ الحساب.');
-                $this->redirect('account/create');
+                $this->redirect('account/index'); return;
             }
-        } else {
-            $parents = $this->accountModel->getParentAccounts();
-            $data = [
-                'title' => 'إضافة حساب مالي', 
-                'parents' => $parents,
-                'breadcrumb' => [
-                    ['label' => 'شجرة الحسابات', 'url' => 'account/tree'],
-                    ['label' => 'إضافة حساب', 'url' => '#']
-                ]
-            ];
-            
-            ob_start();
-            $this->view('account/create', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
         }
+        $data = ['title' => 'إضافة حساب جديد', 'accounts' => $this->accountModel->getAllAccounts()];
+        ob_start(); $this->view('account/create', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    public function edit(string $id = ''): void {
-        if (empty($id) || !is_numeric($id)) $this->redirect('account/tree');
+    // 🟢 إضافة دالة التعديل (Edit) 🟢
+    public function edit($id = '') {
+        if (empty($id) || !is_numeric($id)) $this->redirect('account/index');
         
-        $accId = (int)$id;
-        $account = $this->accountModel->findById($accId);
-
+        $this->accountModel->db->query("SELECT * FROM accounting_accounts WHERE id = :id AND company_id = :cid");
+        $this->accountModel->db->bind(':id', $id);
+        $this->accountModel->db->bind(':cid', Session::get('company_id') ?: 1);
+        $account = $this->accountModel->db->single();
+        
         if (!$account) {
-            $this->setFlash('error', 'الحساب المالي غير موجود.');
-            $this->redirect('account/tree');
+            $this->setFlash('error', 'الحساب غير موجود.');
+            $this->redirect('account/index');
         }
 
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            $parent_id = trim($_POST['parent_id'] ?? '');
             
-            $data = [
-                'code'      => trim($_POST['code'] ?? ''),
-                'name'      => trim($_POST['name'] ?? ''),
-                'type'      => trim($_POST['type'] ?? ''),
-                'parent_id' => !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null,
-                'balance'   => (float)($_POST['balance'] ?? 0.00)
-            ];
-
-            if (empty($data['code']) || empty($data['name'])) {
-                $this->setFlash('error', 'اسم وكود الحساب مطلوبان.');
-                $this->redirect('account/edit/' . $accId);
-            }
-
-            if ($this->accountModel->codeExists($data['code'], $accId)) {
-                $this->setFlash('error', 'الكود مستخدم في حساب آخر.');
-                $this->redirect('account/edit/' . $accId);
-            }
-
-            if ($this->accountModel->updateAccount($accId, $data)) {
-                $this->setFlash('success', 'تم تحديث بيانات الحساب بنجاح.');
-                $this->redirect('account/tree');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء التعديل.');
-                $this->redirect('account/edit/' . $accId);
-            }
-        } else {
-            $parents = $this->accountModel->getParentAccounts();
-            $data = [
-                'title' => 'تعديل الحساب المالي', 
-                'account' => $account, 
-                'parents' => $parents,
-                'breadcrumb' => [
-                    ['label' => 'شجرة الحسابات', 'url' => 'account/tree'],
-                    ['label' => 'تعديل حساب', 'url' => '#']
-                ]
-            ];
+            $sql = "UPDATE accounting_accounts SET 
+                    account_code = :code, account_name = :name, account_type = :type, 
+                    parent_id = :parent, description = :desc 
+                    WHERE id = :id AND company_id = :cid";
             
-            ob_start();
-            $this->view('account/edit', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
+            $this->accountModel->db->query($sql);
+            $this->accountModel->db->bind(':code', trim($_POST['account_code'] ?? ''));
+            $this->accountModel->db->bind(':name', trim($_POST['account_name'] ?? ''));
+            $this->accountModel->db->bind(':type', trim($_POST['account_type'] ?? ''));
+            $this->accountModel->db->bind(':parent', !empty($parent_id) ? $parent_id : null);
+            $this->accountModel->db->bind(':desc', trim($_POST['description'] ?? ''));
+            $this->accountModel->db->bind(':id', $id);
+            $this->accountModel->db->bind(':cid', Session::get('company_id') ?: 1);
+            
+            if ($this->accountModel->db->execute()) {
+                $this->setFlash('success', 'تم تعديل بيانات الحساب بنجاح.');
+                $this->redirect('account/index'); return;
+            }
         }
+
+        $data = ['title' => 'تعديل حساب محاسبي', 'account' => $account, 'accounts' => $this->accountModel->getAllAccounts()];
+        ob_start(); $this->view('account/edit', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    public function delete(string $id = ''): void {
-        $this->requireRole('admin'); 
-        if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            try {
-                if ($this->accountModel->deleteAccount((int)$id)) {
-                    $this->setFlash('success', 'تم حذف الحساب بنجاح.');
-                }
-            } catch (PDOException $e) {
-                $this->setFlash('error', 'لا يمكن حذف الحساب لارتباطه بقيود أو عمليات سابقة.');
-            }
+    public function delete($id = '') {
+        $this->requireRole('admin');
+        if ($this->isPost() && !empty($id)) {
+            $this->accountModel->deleteAccount((int)$id);
+            $this->setFlash('success', 'تم حذف الحساب.');
         }
-        $this->redirect('account/tree');
+        $this->redirect('account/index');
     }
 }

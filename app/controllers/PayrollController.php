@@ -7,119 +7,92 @@ class PayrollController extends Controller {
 
     public function __construct() {
         $this->requireAuth();
-        $this->requireAnyRole(['admin', 'manager', 'super_admin']); // قسم حساس
+        $this->requireAnyRole(['admin', 'hr', 'super_admin']);
         $this->payrollModel = $this->model('Payroll');
     }
 
-    public function index() {
+    public function index(): void {
         $payrolls = $this->payrollModel->getAllPayrolls();
-        
         $data = [
             'title' => 'مسيرات الرواتب (Payroll)',
             'payrolls' => $payrolls,
-            'breadcrumb' => [
-                ['label' => 'الموارد البشرية', 'url' => '#'],
-                ['label' => 'الرواتب', 'url' => 'payroll/index']
-            ]
+            'breadcrumb' => [['label' => 'الموارد البشرية', 'url' => '#'], ['label' => 'مسيرات الرواتب', 'url' => 'payroll/index']]
         ];
-        
-        ob_start();
-        $this->view('payroll/index', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('payroll/index', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function create() {
+    public function generate(): void {
         if ($this->isPost()) {
             $month = (int)($_POST['month'] ?? date('n'));
             $year = (int)($_POST['year'] ?? date('Y'));
 
             if ($this->payrollModel->checkExists($month, $year)) {
-                $this->setFlash('error', 'تم توليد مسير رواتب لهذا الشهر مسبقاً! الرجاء مراجعته من القائمة.');
-                $this->redirect('payroll/index');
-                return;
-            }
-
-            $payrollId = $this->payrollModel->generatePayroll($month, $year, Session::getUserId());
-            
-            if ($payrollId) {
-                $this->setFlash('success', 'تم حساب وتوليد مسير الرواتب بنجاح.');
-                $this->redirect('payroll/show/' . $payrollId);
+                $this->setFlash('error', 'يوجد مسير رواتب مسجل مسبقاً لهذا الشهر! يرجى حذفه أولاً إذا أردت إعادة التوليد.');
             } else {
-                $this->setFlash('error', 'حدث خطأ أثناء المعالجة أو لا يوجد موظفين نشطين.');
-                $this->redirect('payroll/index');
+                $payrollId = $this->payrollModel->generatePayroll($month, $year, Session::getUserId());
+                if ($payrollId) {
+                    $this->setFlash('success', 'تم توليد مسير الرواتب بنجاح وبشكل آلي.');
+                    $this->redirect('payroll/show/' . $payrollId);
+                    return;
+                } else {
+                    $this->setFlash('error', 'حدث خطأ. تأكد من وجود موظفين "نشطين" في النظام لتوليد رواتبهم.');
+                }
             }
-        } else {
-            $data = [
-                'title' => 'توليد مسير رواتب',
-                'breadcrumb' => [
-                    ['label' => 'الرواتب', 'url' => 'payroll/index'],
-                    ['label' => 'إصدار جديد', 'url' => '#']
-                ]
-            ];
-            
-            ob_start();
-            $this->view('payroll/create', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
         }
+        $this->redirect('payroll/index');
     }
 
-    public function show($id = '') {
+    public function show(string $id = ''): void {
         if (empty($id) || !is_numeric($id)) $this->redirect('payroll/index');
         
         $payrollId = (int)$id;
         $payroll = $this->payrollModel->getPayrollById($payrollId);
         
         if (!$payroll) {
-            $this->setFlash('error', 'المسير غير موجود.');
+            $this->setFlash('error', 'مسير الرواتب غير موجود.');
             $this->redirect('payroll/index');
         }
 
         $details = $this->payrollModel->getPayrollDetails($payrollId);
 
         $data = [
-            'title' => 'مسير رواتب: ' . $payroll->month . '/' . $payroll->year,
+            'title' => 'مسير رواتب شهر ' . $payroll->month . ' / ' . $payroll->year,
             'payroll' => $payroll,
             'details' => $details,
-            'breadcrumb' => [
-                ['label' => 'الرواتب', 'url' => 'payroll/index'],
-                ['label' => 'تفاصيل المسير', 'url' => '#']
-            ]
+            'breadcrumb' => [['label' => 'الرواتب', 'url' => 'payroll/index'], ['label' => 'تفاصيل المسير', 'url' => '#']]
         ];
         
-        ob_start();
-        $this->view('payroll/show', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('payroll/show', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function updateStatus($id = '') {
+    public function updateStatus(string $id = ''): void {
         if ($this->isPost() && !empty($id) && is_numeric($id)) {
             $status = trim($_POST['status'] ?? '');
             if (in_array($status, ['approved', 'paid'])) {
-                if ($this->payrollModel->updateStatus((int)$id, $status)) {
-                    $this->setFlash('success', 'تم تحديث حالة المسير واعتماده.');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء التحديث.');
+                $this->payrollModel->updateStatus((int)$id, $status);
+                
+                // 🟢 هنا يمكن إضافة القيد المحاسبي لرواتب الموظفين آلياً لاحقاً 🟢
+                if ($status === 'approved') {
+                    $this->setFlash('success', 'تم اعتماد المسير. جاهز للصرف.');
+                } elseif ($status === 'paid') {
+                    $this->setFlash('success', 'تم تسجيل المسير كـ مدفوع ونهائي.');
                 }
             }
         }
         $this->redirect('payroll/show/' . $id);
     }
 
-    public function delete($id = '') {
+    public function delete(string $id = ''): void {
         $this->requireRole('admin');
         if ($this->isPost() && !empty($id) && is_numeric($id)) {
             $payroll = $this->payrollModel->getPayrollById((int)$id);
-            if ($payroll && $payroll->status === 'draft') {
-                if ($this->payrollModel->deletePayroll((int)$id)) {
-                    $this->setFlash('success', 'تم حذف مسير الرواتب بنجاح.');
-                } else {
-                    $this->setFlash('error', 'حدث خطأ أثناء الحذف.');
-                }
+            if ($payroll && $payroll->status === 'paid') {
+                $this->setFlash('error', 'لا يمكن حذف مسير رواتب تم صرفه بالفعل وتأكيده.');
             } else {
-                $this->setFlash('error', 'لا يمكن حذف مسير رواتب تم اعتماده أو صرفه.');
+                $this->payrollModel->deletePayroll((int)$id);
+                $this->setFlash('success', 'تم مسح مسير الرواتب بنجاح.');
             }
         }
         $this->redirect('payroll/index');

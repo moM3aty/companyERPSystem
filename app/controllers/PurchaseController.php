@@ -3,206 +3,155 @@
 
 class PurchaseController extends Controller {
     
-    private Purchase $purchaseModel;
+    private $purchaseModel;
 
     public function __construct() {
         $this->requireAuth();
+        $role = Session::getUserRole();
+        if (!in_array($role, ['admin', 'super_admin', 'manager', 'accountant', 'purchasing'])) {
+            $this->redirect('dashboard/index');
+            exit;
+        }
         $this->purchaseModel = $this->model('Purchase');
     }
 
-    public function index(): void {
-        $orders = $this->purchaseModel->getAllOrders();
-        
+    public function index() {
+        $purchases = [];
+        try {
+            $purchases = $this->purchaseModel->getAllPurchases();
+        } catch (Throwable $e) {}
+
         $data = [
-            'title'  => 'أوامر الشراء (PO)',
-            'orders' => $orders
+            'title' => 'أوامر الشراء (Purchase Orders)',
+            'purchases' => is_array($purchases) ? $purchases : [],
+            'breadcrumb' => [['label' => 'المشتريات', 'url' => '#'], ['label' => 'أوامر الشراء', 'url' => 'purchase/index']]
         ];
         
-        ob_start();
-        $this->view('purchase/index', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('purchase/index', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function create(): void {
+    public function create() {
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            
-            $supplierId = !empty($_POST['supplier_id']) ? (int)$_POST['supplier_id'] : 0;
-            $notes = trim($_POST['notes'] ?? '');
-            
-            $productIds = $_POST['product_id'] ?? [];
-            $quantities = $_POST['quantity'] ?? [];
-            $prices = $_POST['unit_price'] ?? [];
 
-            if ($supplierId === 0 || empty($productIds)) {
-                $this->setFlash('error', 'يجب اختيار مورد وإضافة منتج واحد على الأقل.');
-                $this->redirect('purchase/create');
-            }
+            $data = [
+                'supplier_id'  => (int)($_POST['supplier_id'] ?? 0),
+                'order_number' => trim($_POST['order_number'] ?? ''),
+                'order_date'   => trim($_POST['order_date'] ?? date('Y-m-d')),
+                'total_amount' => (float)($_POST['grand_total'] ?? 0),
+                'notes'        => trim($_POST['notes'] ?? '')
+            ];
+
+            // 🟢 استقبال product_id 🟢
+            $productIds   = $_POST['product_id'] ?? [];
+            $productNames = $_POST['product_name'] ?? [];
+            $quantities   = $_POST['quantity'] ?? [];
+            $prices       = $_POST['unit_price'] ?? [];
+            $totals       = $_POST['total_price'] ?? [];
 
             $items = [];
-            $totalAmount = 0.0;
-
-            foreach ($productIds as $index => $pid) {
-                $qty = (int)($quantities[$index] ?? 0);
-                $price = (float)($prices[$index] ?? 0);
-                
-                if ($qty > 0 && $price >= 0) {
-                    $subtotal = $qty * $price;
-                    $totalAmount += $subtotal;
+            for ($i = 0; $i < count($productIds); $i++) {
+                if (!empty($productIds[$i]) && $quantities[$i] > 0) {
                     $items[] = [
-                        'product_id'       => (int)$pid,
-                        'quantity_ordered' => $qty,
-                        'unit_price'       => $price,
-                        'total'            => $subtotal
+                        'product_id'   => (int)$productIds[$i],
+                        'product_name' => $productNames[$i] ?? 'صنف',
+                        'quantity'     => (float)$quantities[$i],
+                        'unit_price'   => (float)$prices[$i],
+                        'total_price'  => (float)$totals[$i]
                     ];
                 }
+            }
+
+            if (empty($data['supplier_id'])) {
+                $this->setFlash('error', 'يجب اختيار المورد.');
+                $this->redirect('purchase/create');
+                return;
             }
 
             if (empty($items)) {
-                $this->setFlash('error', 'الكميات غير صالحة.');
+                $this->setFlash('error', 'يجب اختيار صنف واحد على الأقل من المخزون.');
                 $this->redirect('purchase/create');
+                return;
             }
 
-            $orderData = ['supplier_id' => $supplierId, 'total_amount' => $totalAmount, 'notes' => $notes, 'status' => 'pending'];
-
-            if ($this->purchaseModel->createOrder($orderData, $items)) {
-                $this->setFlash('success', 'تم إنشاء أمر الشراء بنجاح. يمكنك الآن استلام البضائع.');
-                $this->redirect('purchase/index');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء حفظ أمر الشراء.');
-                $this->redirect('purchase/create');
-            }
-        } else {
-            $db = Database::getInstance();
-            $db->query("SELECT id, name FROM suppliers ORDER BY name ASC");
-            $suppliers = $db->resultSet();
-            $db->query("SELECT id, name, price FROM products ORDER BY name ASC");
-            $products = $db->resultSet();
-
-            $data = ['title' => 'إنشاء أمر شراء', 'suppliers' => $suppliers, 'products' => $products];
-            ob_start();
-            $this->view('purchase/create', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
-        }
-    }
-
-    public function edit(string $id = ''): void {
-        // ... نفس كود الدفعة السابقة (التعديل متاح للمسودات فقط)
-        if (empty($id) || !is_numeric($id)) $this->redirect('purchase/index');
-        
-        $poId = (int)$id;
-        $order = $this->purchaseModel->getOrderById($poId);
-
-        if (!$order || $order->status !== 'pending') {
-            $this->setFlash('error', 'لا يمكن تعديل أمر الشراء لأنه معتمد أو مستلم.');
-            $this->redirect('purchase/index');
-        }
-
-        if ($this->isPost()) {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            
-            $supplierId = !empty($_POST['supplier_id']) ? (int)$_POST['supplier_id'] : 0;
-            $notes = trim($_POST['notes'] ?? '');
-            
-            $productIds = $_POST['product_id'] ?? [];
-            $quantities = $_POST['quantity'] ?? [];
-            $prices = $_POST['unit_price'] ?? [];
-
-            $items = [];
-            $totalAmount = 0.0;
-
-            foreach ($productIds as $index => $pid) {
-                $qty = (int)($quantities[$index] ?? 0);
-                $price = (float)($prices[$index] ?? 0);
-                if ($qty > 0 && $price >= 0) {
-                    $subtotal = $qty * $price;
-                    $totalAmount += $subtotal;
-                    $items[] = [
-                        'product_id' => (int)$pid, 'quantity_ordered' => $qty, 'unit_price' => $price, 'total' => $subtotal
-                    ];
+            try {
+                $purchaseId = $this->purchaseModel->createPurchase($data, $items);
+                if ($purchaseId) {
+                    $this->setFlash('success', 'تم إنشاء أمر الشراء (PO) بنجاح.');
+                    $this->redirect('purchase/index');
+                    return;
                 }
+            } catch (Throwable $e) {
+                // سيظهر الخطأ التفصيلي إذا حدث
+                $this->setFlash('error', 'تفاصيل الخطأ: ' . $e->getMessage());
             }
-
-            $orderData = ['supplier_id' => $supplierId, 'total_amount' => $totalAmount, 'notes' => $notes];
-
-            if ($this->purchaseModel->updateOrder($poId, $orderData, $items)) {
-                $this->setFlash('success', 'تم تعديل أمر الشراء بنجاح.');
-                $this->redirect('purchase/index');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء تعديل أمر الشراء.');
-                $this->redirect('purchase/edit/' . $poId);
-            }
-        } else {
-            $items = $this->purchaseModel->getOrderItems($poId);
-            $db = Database::getInstance();
-            $db->query("SELECT id, name FROM suppliers ORDER BY name ASC");
-            $suppliers = $db->resultSet();
-            $db->query("SELECT id, name, price FROM products ORDER BY name ASC");
-            $products = $db->resultSet();
-
-            $data = ['title' => 'تعديل أمر الشراء', 'order' => $order, 'items' => $items, 'suppliers' => $suppliers, 'products' => $products];
-            ob_start();
-            $this->view('purchase/edit', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
         }
-    }
 
-    public function show(string $id = ''): void {
-        if (empty($id) || !is_numeric($id)) $this->redirect('purchase/index');
+        $db = Database::getInstance();
+        $cid = Session::get('company_id') ?: 1;
+        $suppliers = []; $products = [];
         
-        $poId = (int)$id;
-        $order = $this->purchaseModel->getOrderById($poId);
-        if (!$order) $this->redirect('purchase/index');
+        try {
+            $db->query("SELECT id, company_name as name FROM suppliers WHERE company_id = :cid");
+            $db->bind(':cid', $cid);
+            $suppliers = $db->resultSet() ?: [];
+        } catch (Throwable $e) {}
+
+        try {
+            $db->query("SELECT id, name, cost_price as price FROM products WHERE company_id = :cid");
+            $db->bind(':cid', $cid);
+            $products = $db->resultSet() ?: [];
+        } catch (Throwable $e) {
+            try {
+                $db->query("SELECT id, name, price FROM products WHERE company_id = :cid");
+                $db->bind(':cid', $cid);
+                $products = $db->resultSet() ?: [];
+            } catch (Throwable $t) {}
+        }
+
+        $data = [
+            'title' => 'إنشاء أمر شراء جديد (PO)',
+            'suppliers' => $suppliers,
+            'products' => $products,
+            'auto_po_num' => 'PO-' . date('Ymd') . '-' . rand(100, 999)
+        ];
         
-        $items = $this->purchaseModel->getOrderItems($poId);
-        $data = ['title' => 'تفاصيل أمر الشراء', 'order' => $order, 'items' => $items];
-        
-        ob_start();
-        $this->view('purchase/view', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('purchase/create', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function receive(string $id = ''): void {
+    public function show($id = '') {
         if (empty($id) || !is_numeric($id)) $this->redirect('purchase/index');
-        $poId = (int)$id;
-        $order = $this->purchaseModel->getOrderById($poId);
-
-        if (!$order || !in_array($order->status, ['pending', 'approved', 'ordered'])) {
-            $this->setFlash('error', 'لا يمكن استلام بضائع لهذا الطلب.');
+        
+        $purchase = null;
+        try { $purchase = $this->purchaseModel->getPurchaseById((int)$id); } catch (Throwable $e) {}
+        
+        if (!$purchase) {
+            $this->setFlash('error', 'أمر الشراء غير موجود.');
             $this->redirect('purchase/index');
         }
+        
+        $items = $this->purchaseModel->getPurchaseItems($purchase->id);
 
-        if ($this->isPost()) {
-            $receivedItems = $_POST['received_items'] ?? [];
-            // الموديل سيقوم بـ: رفع المخزون + حساب تكلفة المستلم + إنشاء قيد يومية من حـ/المخزون إلى حـ/الموردين
-            if ($this->purchaseModel->receiveItems($poId, $receivedItems)) {
-                $this->setFlash('success', 'تم استلام الكميات بنجاح. تم تحديث المخزون وإثبات قيد محاسبي باستحقاق المورد.');
-                $this->redirect('purchase/show/' . $poId);
-            } else {
-                $this->setFlash('error', 'فشل في استلام البضائع أو توليد القيد المحاسبي.');
-                $this->redirect('purchase/receive/' . $poId);
-            }
-        } else {
-            $items = $this->purchaseModel->getOrderItems($poId);
-            $data = ['title' => 'استلام بضاعة', 'order' => $order, 'items' => $items];
-            ob_start();
-            $this->view('purchase/receive', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
-        }
+        $data = [
+            'title' => 'أمر شراء (PO) #' . $purchase->order_number,
+            'purchase' => $purchase,
+            'items' => $items,
+            'breadcrumb' => [['label' => 'المشتريات', 'url' => 'purchase/index'], ['label' => 'عرض أمر الشراء', 'url' => '#']]
+        ];
+        
+        ob_start(); $this->view('purchase/show', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    public function delete(string $id = ''): void {
-        $this->requireRole('admin');
-        if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            if ($this->purchaseModel->deleteOrder((int)$id)) {
-                $this->setFlash('success', 'تم حذف أمر الشراء.');
+    public function delete($id = '') {
+        $this->requireAnyRole(['admin', 'super_admin']); 
+        if ($this->isPost() && !empty($id)) {
+            if ($this->purchaseModel->deletePurchase((int)$id)) {
+                $this->setFlash('success', 'تم حذف أمر الشراء بنجاح.');
             } else {
-                $this->setFlash('error', 'فشل الحذف. قد يكون الأمر معتمداً.');
+                $this->setFlash('error', 'حدث خطأ أثناء محاولة الحذف.');
             }
         }
         $this->redirect('purchase/index');

@@ -12,16 +12,10 @@ class ReportController extends Controller {
 
     public function index() {
         $data = [
-            'title' => 'التقارير الذكية (Smart Reports)',
-            'breadcrumb' => [
-                ['label' => 'الإدارة والدعم', 'url' => '#'],
-                ['label' => 'التقارير', 'url' => 'report/index']
-            ]
+            'title' => 'التقارير الذكية والمحاسبية',
+            'breadcrumb' => [['label' => 'الإدارة والدعم', 'url' => '#'], ['label' => 'التقارير', 'url' => 'report/index']]
         ];
-        
-        ob_start();
-        $this->view('reports/index', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('reports/index', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
     
@@ -33,20 +27,11 @@ class ReportController extends Controller {
         $topProducts = $this->reportModel->getTopSellingProducts($startDate, $endDate);
         
         $data = [
-            'title' => 'المبيعات والضرائب',
-            'sales' => $salesData,
-            'top_products' => $topProducts,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'breadcrumb' => [
-                ['label' => 'التقارير', 'url' => 'report/index'],
-                ['label' => 'المبيعات', 'url' => '#']
-            ]
+            'title' => 'تقرير المبيعات والضرائب',
+            'sales' => $salesData, 'top_products' => $topProducts, 'start_date' => $startDate, 'end_date' => $endDate,
+            'breadcrumb' => [['label' => 'التقارير', 'url' => 'report/index'], ['label' => 'مبيعات', 'url' => '#']]
         ];
-        
-        ob_start();
-        $this->view('reports/sales', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('reports/sales', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
@@ -58,18 +43,11 @@ class ReportController extends Controller {
         $hrData = $this->reportModel->getHrReport($startDate, $endDate);
 
         $data = [
-            'title' => 'تقارير الموارد البشرية',
-            'hr_data' => $hrData,
-            'selected_month' => $month,
-            'breadcrumb' => [
-                ['label' => 'التقارير', 'url' => 'report/index'],
-                ['label' => 'الموارد البشرية', 'url' => '#']
-            ]
+            'title' => 'تقرير الموارد البشرية',
+            'hr_data' => $hrData, 'selected_month' => $month,
+            'breadcrumb' => [['label' => 'التقارير', 'url' => 'report/index'], ['label' => 'الموارد البشرية', 'url' => '#']]
         ];
-        
-        ob_start();
-        $this->view('reports/hr', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('reports/hr', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
@@ -81,20 +59,42 @@ class ReportController extends Controller {
         $supplierData = $this->reportModel->getSupplierReport($startDate, $endDate);
 
         $data = [
-            'title' => 'المشتريات والموردين',
-            'purchases' => $purchasesData,
-            'suppliers' => $supplierData,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'breadcrumb' => [
-                ['label' => 'التقارير', 'url' => 'report/index'],
-                ['label' => 'المشتريات', 'url' => '#']
-            ]
+            'title' => 'تقرير المشتريات والموردين',
+            'purchases' => $purchasesData, 'suppliers' => $supplierData, 'start_date' => $startDate, 'end_date' => $endDate,
+            'breadcrumb' => [['label' => 'التقارير', 'url' => 'report/index'], ['label' => 'المشتريات', 'url' => '#']]
         ];
-        
-        ob_start();
-        $this->view('reports/purchases', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('reports/purchases', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+
+    public function incomeStatement() {
+        $startDate = $_GET['start_date'] ?? date('Y-m-01');
+        $endDate = $_GET['end_date'] ?? date('Y-m-t');
+
+        $incomeData = $this->reportModel->getIncomeStatement($startDate, $endDate);
+
+        $data = [
+            'title' => 'قائمة الدخل (Income Statement)',
+            'income_data' => $incomeData, 'start_date' => $startDate, 'end_date' => $endDate,
+            'breadcrumb' => [['label' => 'التقارير', 'url' => 'report/index'], ['label' => 'قائمة الدخل', 'url' => '#']]
+        ];
+        ob_start(); $this->view('reports/income_statement', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+
+    public function balanceSheet() {
+        $asOfDate = $_GET['as_of_date'] ?? date('Y-m-d');
+
+        $assets = $this->reportModel->getAccountBalancesByType('Asset');
+        $liabilities = $this->reportModel->getAccountBalancesByType('Liability');
+        $equity = $this->reportModel->getAccountBalancesByType('Equity');
+
+        $data = [
+            'title' => 'الميزانية العمومية (Balance Sheet)',
+            'assets' => $assets, 'liabilities' => $liabilities, 'equity' => $equity, 'as_of_date' => $asOfDate,
+            'breadcrumb' => [['label' => 'التقارير', 'url' => 'report/index'], ['label' => 'الميزانية', 'url' => '#']]
+        ];
+        ob_start(); $this->view('reports/balance_sheet', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 }

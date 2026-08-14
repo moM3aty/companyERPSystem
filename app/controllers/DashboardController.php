@@ -3,10 +3,17 @@
 
 class DashboardController extends Controller {
     
+    private $dashboardModel;
+
     public function __construct() {
         $this->requireAuth();
+        // تحميل موديل الداشبورد لاستخدامه في لوحة الـ CEO
+        if (file_exists('../app/models/Dashboard.php')) {
+            $this->dashboardModel = $this->model('Dashboard');
+        }
     }
 
+    // 🟢 1. لوحة القيادة العامة (كودك الأصلي كامل بدون أي نقص) 🟢
     public function index(): void {
         $db = Database::getInstance();
         
@@ -52,7 +59,7 @@ class DashboardController extends Controller {
         $db->query("SELECT COUNT(*) as count FROM contracts WHERE status = 'active' AND end_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY)");
         $expiringContractsCount = (int)($db->single()->count ?? 0);
 
-        // 🔴 إصلاح مصفوفة المبيعات للرسم البياني لتتوافق مع JSON 🔴
+        // إصلاح مصفوفة المبيعات للرسم البياني لتتوافق مع JSON
         $labels = [];
         $dataArray = [];
         for ($i = 5; $i >= 0; $i--) {
@@ -99,7 +106,25 @@ class DashboardController extends Controller {
         Layout::render($content, $data);
     }
 
-    // نقطة اتصال لجعل الإشعار مقروء عند الضغط عليه
+    // 🟢 2. لوحة الإدارة العليا (CEO) التي برمجناها مؤخراً 🟢
+    public function ceo() {
+        $this->requireAnyRole(['admin', 'super_admin', 'ceo']);
+        
+        $metrics = $this->dashboardModel->getFinanceMetrics();
+        $cashFlow = $this->dashboardModel->getMonthlyCashFlow();
+
+        $data = [
+            'title' => 'لوحة الإدارة العليا (CEO Dashboard)',
+            'metrics' => $metrics,
+            'cashFlow' => json_encode($cashFlow),
+            'breadcrumb' => [['label' => 'الرئيسية', 'url' => '#'], ['label' => 'لوحة الـ CEO', 'url' => 'dashboard/ceo']]
+        ];
+
+        ob_start(); $this->view('dashboard/ceo', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
+    }
+
+    // 🟢 3. نقطة اتصال الإشعارات (من كودك الأصلي) 🟢
     public function readNotification(string $id = '') {
         if (!empty($id) && is_numeric($id)) {
             $notifModel = $this->model('Notification');

@@ -3,155 +3,119 @@
 
 class FixedAssetController extends Controller {
     
-    private FixedAsset $assetModel;
+    private $assetModel;
+    private $employeeModel;
+    private $supplierModel;
 
     public function __construct() {
         $this->requireAuth();
         $this->assetModel = $this->model('FixedAsset');
+        if (file_exists('../app/models/Employee.php')) $this->employeeModel = $this->model('Employee');
+        if (file_exists('../app/models/Supplier.php')) $this->supplierModel = $this->model('Supplier');
     }
 
-    public function index(): void {
+    public function index() {
         $assets = $this->assetModel->getAllAssets();
-        
-        $totalCost = 0;
-        $totalBookValue = 0;
-        $activeAssetsCount = 0;
-        
-        foreach ($assets as $asset) {
-            if ($asset->status === 'active') {
-                $totalCost += $asset->purchase_cost;
-                $totalBookValue += $asset->book_value;
-                $activeAssetsCount++;
-            }
+        foreach($assets as &$a) {
+            $dep = $this->assetModel->calculateExpectedDepreciation($a);
+            $a->current_book_value = $dep['book_value'];
+            $a->monthly_depreciation = $dep['monthly'];
         }
 
         $data = [
-            'title' => 'سجل الأصول الثابتة', 
+            'title' => 'إدارة الأصول الثابتة (Fixed Assets)', 
             'assets' => $assets,
-            'stats' => [
-                'total_cost' => $totalCost,
-                'total_book_value' => $totalBookValue,
-                'active_count' => $activeAssetsCount
-            ],
-            'breadcrumb' => [
-                ['label' => 'المشاريع والأصول', 'url' => '#'],
-                ['label' => 'الأصول الثابتة', 'url' => 'fixedAsset/index']
-            ]
+            'breadcrumb' => [['label' => 'المالية', 'url' => '#'], ['label' => 'الأصول الثابتة', 'url' => 'fixedAsset/index']]
         ];
-        
-        ob_start();
-        $this->view('assets/index', $data);
-        $content = ob_get_clean();
+        ob_start(); $this->view('fixedAsset/index', $data); $content = ob_get_clean();
         Layout::render($content, $data);
     }
 
-    public function create(): void {
-        $this->requireAnyRole(['admin', 'editor', 'manager']);
+    public function create() {
         if ($this->isPost()) {
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            
             $data = [
-                'asset_tag'         => trim($_POST['asset_tag'] ?? ''),
-                'name'              => trim($_POST['name'] ?? ''),
-                'category'          => trim($_POST['category'] ?? 'other'),
-                'purchase_date'     => trim($_POST['purchase_date'] ?? date('Y-m-d')),
-                'purchase_cost'     => (float)($_POST['purchase_cost'] ?? 0.0),
-                'salvage_value'     => (float)($_POST['salvage_value'] ?? 0.0),
-                'useful_life_years' => (int)($_POST['useful_life_years'] ?? 1),
-                'location'          => trim($_POST['location'] ?? ''),
-                'status'            => trim($_POST['status'] ?? 'active'),
-                'notes'             => trim($_POST['notes'] ?? ''),
-                'created_by'        => Session::getUserId()
+                'asset_id' => trim($_POST['asset_id'] ?? 'AST-'.time()),
+                'barcode' => trim($_POST['barcode'] ?? ''),
+                'asset_name' => trim($_POST['asset_name'] ?? ''),
+                'category' => trim($_POST['category'] ?? ''),
+                'purchase_date' => trim($_POST['purchase_date'] ?? date('Y-m-d')),
+                'warranty_expiry' => trim($_POST['warranty_expiry'] ?? ''),
+                'purchase_cost' => (float)($_POST['purchase_cost'] ?? 0),
+                'salvage_value' => (float)($_POST['salvage_value'] ?? 0),
+                'useful_life' => (int)($_POST['useful_life'] ?? 1),
+                'supplier_id' => !empty($_POST['supplier_id']) ? (int)$_POST['supplier_id'] : null,
+                'location' => trim($_POST['location'] ?? ''),
+                'responsible_employee' => !empty($_POST['responsible_employee']) ? (int)$_POST['responsible_employee'] : null,
+                'notes' => trim($_POST['notes'] ?? ''),
+                'attachment' => null
             ];
 
-            if (empty($data['name']) || $data['purchase_cost'] <= 0 || $data['useful_life_years'] < 1) {
-                $this->setFlash('error', 'يجب إدخال بيانات صحيحة (الاسم، تكلفة الشراء، العمر الإنتاجي).');
-                $this->redirect('fixedAsset/create');
+            if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = dirname(APP_ROOT) . '/public/uploads/assets/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+                $fileName = time() . '_' . basename($_FILES['attachment']['name']);
+                if (move_uploaded_file($_FILES['attachment']['tmp_name'], $uploadDir . $fileName)) {
+                    $data['attachment'] = $fileName;
+                }
             }
 
             if ($this->assetModel->createAsset($data)) {
-                $this->setFlash('success', 'تم حفظ الأصل بنجاح وتم توليد قيد الإثبات المحاسبي.');
-                $this->redirect('fixedAsset/index');
-            } else {
-                $this->setFlash('error', 'حدث خطأ أثناء حفظ الأصل، تأكد من عدم تكرار الرقم التسلسلي (Asset Tag).');
-                $this->redirect('fixedAsset/create');
+                $this->setFlash('success', 'تم تسجيل الأصل الثابت بنجاح. سيبدأ حساب إهلاكه تلقائياً.');
+                $this->redirect('fixedAsset/index'); return;
             }
-        } else {
-            $data = [
-                'title' => 'إضافة أصل جديد', 
-                'breadcrumb' => [
-                    ['label' => 'الأصول الثابتة', 'url' => 'fixedAsset/index'], 
-                    ['label' => 'إضافة', 'url' => '#']
-                ]
-            ];
-            ob_start();
-            $this->view('assets/create', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
         }
+
+        $employees = $this->employeeModel ? $this->employeeModel->getAllEmployees() : [];
+        $suppliers = $this->supplierModel ? $this->supplierModel->getAllSuppliers() : [];
+
+        $data = ['title' => 'تسجيل أصل ثابت', 'employees' => $employees, 'suppliers' => $suppliers, 'auto_id' => 'AST-'.rand(1000,9999)];
+        ob_start(); $this->view('fixedAsset/create', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    public function edit(string $id = ''): void {
-        $this->requireAnyRole(['admin', 'editor', 'manager']);
-        if (empty($id) || !is_numeric($id)) $this->redirect('fixedAsset/index');
-        
-        $assetId = (int)$id;
-        $asset = $this->assetModel->getAssetById($assetId);
-        
-        if (!$asset) {
-            $this->setFlash('error', 'الأصل غير موجود.');
-            $this->redirect('fixedAsset/index');
-        }
-        
-        if ($this->isPost()) {
-            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            $data = [
-                'asset_tag'         => trim($_POST['asset_tag'] ?? ''),
-                'name'              => trim($_POST['name'] ?? ''),
-                'category'          => trim($_POST['category'] ?? 'other'),
-                'purchase_date'     => trim($_POST['purchase_date'] ?? date('Y-m-d')),
-                'purchase_cost'     => (float)($_POST['purchase_cost'] ?? 0.0),
-                'salvage_value'     => (float)($_POST['salvage_value'] ?? 0.0),
-                'useful_life_years' => (int)($_POST['useful_life_years'] ?? 1),
-                'location'          => trim($_POST['location'] ?? ''),
-                'status'            => trim($_POST['status'] ?? 'active'),
-                'notes'             => trim($_POST['notes'] ?? '')
-            ];
-            
-            if ($this->assetModel->updateAsset($assetId, $data)) {
-                ActivityLog::logAction('UPDATE', 'FixedAssets', $assetId, "تم تعديل بيانات الأصل الثابت: {$data['name']}");
-                $this->setFlash('success', 'تم تعديل الأصل بنجاح.');
-                $this->redirect('fixedAsset/index');
-            } else {
-                $this->setFlash('error', 'حدث خطأ، تأكد من عدم تكرار كود الأصل.');
-                $this->redirect('fixedAsset/edit/' . $assetId);
-            }
-        } else {
-            $data = [
-                'title' => 'تعديل أصل', 
-                'asset' => $asset, 
-                'breadcrumb' => [
-                    ['label' => 'الأصول', 'url' => 'fixedAsset/index'], 
-                    ['label' => 'تعديل', 'url' => '#']
-                ]
-            ];
-            ob_start();
-            $this->view('assets/edit', $data);
-            $content = ob_get_clean();
-            Layout::render($content, $data);
-        }
+    public function show($id = '') {
+        if (empty($id)) $this->redirect('fixedAsset/index');
+        $asset = $this->assetModel->getAssetById($id);
+        if (!$asset) $this->redirect('fixedAsset/index');
+
+        $depreciation = $this->assetModel->calculateExpectedDepreciation($asset);
+
+        $data = ['title' => 'ملف الأصل: ' . $asset->asset_name, 'asset' => $asset, 'depreciation' => $depreciation];
+        ob_start(); $this->view('fixedAsset/show', $data); $content = ob_get_clean();
+        Layout::render($content, $data);
     }
 
-    public function delete(string $id = ''): void {
+    public function postDepreciation($id = '') {
+        $this->requireAnyRole(['admin', 'manager', 'super_admin']);
+        if ($this->isPost() && !empty($id)) {
+            $amount = (float)$_POST['amount'];
+            $date = $_POST['date'] ?? date('Y-m-d');
+            if ($amount > 0) {
+                if ($this->assetModel->postDepreciationEntry((int)$id, $amount, $date)) {
+                    $this->setFlash('success', 'تم تسجيل قيد الإهلاك بنجاح وتخفيض القيمة الدفترية للأصل.');
+                } else {
+                    $this->setFlash('error', 'حدث خطأ. تأكد من وجود حسابات (مصروف إهلاك) و (مجمع إهلاك) في دليل الحسابات.');
+                }
+            }
+        }
+        $this->redirect('fixedAsset/show/' . $id);
+    }
+
+    public function dispose($id = '') {
         $this->requireRole('admin');
-        if ($this->isPost() && !empty($id) && is_numeric($id)) {
-            if ($this->assetModel->deleteAsset((int)$id)) {
-                ActivityLog::logAction('DELETE', 'FixedAssets', (int)$id, "تم حذف أصل ثابت من النظام");
-                $this->setFlash('success', 'تم حذف الأصل.');
-            } else {
-                $this->setFlash('error', 'فشل في حذف الأصل.');
+        if ($this->isPost() && !empty($id)) {
+            $data = [
+                'disposal_date' => $_POST['disposal_date'] ?? date('Y-m-d'),
+                'disposal_value'=> (float)$_POST['disposal_value'],
+                'disposal_type' => $_POST['disposal_type'] ?? 'Sold'
+            ];
+            $result = $this->assetModel->disposeAsset((int)$id, $data);
+            if ($result['success']) {
+                $msg = $result['gain_loss'] >= 0 ? 'بأرباح رأسمالية قدرها ' . number_format($result['gain_loss'], 2) : 'بخسائر رأسمالية قدرها ' . number_format(abs($result['gain_loss']), 2);
+                $this->setFlash('success', 'تم استبعاد الأصل نهائياً ' . $msg);
             }
         }
-        $this->redirect('fixedAsset/index');
+        $this->redirect('fixedAsset/show/' . $id);
     }
 }
