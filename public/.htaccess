@@ -1,4 +1,12 @@
 RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
+
+# السماح بمرور ملفات التصميم والصور بشكل مباشر (لتسريع الموقع)
+RewriteCond %{REQUEST_URI} \.(css|js|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|ico)$ [NC]
+RewriteRule ^(.*)$ - [L]
+
+# إذا كان الزائر يطلب ملفاً أو مجلداً حقيقياً (غير موجود)، قم بتوجيهه للأساس
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+RewriteCond %{REQUEST_FILENAME} !-f
+
+# توجيه كل شيء آخر إلى ملف تشغيل النظام index.php
+RewriteRule ^(.*)$ index.php [L,QSA]

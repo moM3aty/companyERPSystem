@@ -1,0 +1,59 @@
+#!/usr/bin/env php
+<?php
+// Path: bin/console
+
+declare(strict_types=1);
+
+/**
+ * =================================================================================
+ * ERP Pro System - CLI Entry Point
+ * =================================================================================
+ * هذا الملف هو النقطة الوحيدة لتشغيل أوامر النظام من الطرفية (Terminal).
+ * يتم استخدامه لتشغيل الـ Cron Jobs والـ Queue Workers والـ Database Migrations.
+ */
+
+if (php_sapi_name() !== 'cli') {
+    die("This script must be run from the command line.");
+}
+
+define('ERP_START_TIME', microtime(true));
+define('APP_ROOT', dirname(__DIR__));
+
+$composerAutoloadPath = APP_ROOT . '/vendor/autoload.php';
+if (file_exists($composerAutoloadPath)) {
+    require_once $composerAutoloadPath;
+} else {
+    spl_autoload_register(function ($class) {
+        $prefix = 'App\\';
+        $base_dir = APP_ROOT . '/app/';
+        $len = strlen($prefix);
+        if (strncmp($prefix, $class, $len) !== 0) { return; }
+        $relative_class = substr($class, $len);
+        $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+        if (file_exists($file)) { require $file; }
+    });
+}
+
+use App\Core\Bootstrap\Application;
+use App\Core\Config\Config;
+use App\Core\Config\Environment;
+use App\Core\Console\ConsoleKernel;
+
+$app = new Application(APP_ROOT);
+
+$configData = [
+    'app' => \App\Core\Config\AppConfig::getDefaults(APP_ROOT),
+    'database' => ['default' => \App\Core\Config\DatabaseConfig::getDefaults()],
+    'security' => \App\Core\Config\SecurityConfig::getDefaults(),
+    'cache' => \App\Core\Config\CacheConfig::getDefaults(APP_ROOT),
+];
+$config = new Config($configData);
+$app->instance(Config::class, $config);
+
+Environment::boot($config);
+
+// توجيه الطلب إلى نواة الـ Console
+$kernel = new ConsoleKernel($app);
+$exitCode = $kernel->handle($argv);
+
+exit($exitCode);

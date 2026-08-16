@@ -1,0 +1,1214 @@
+/* ==========================================================================
+   Nour Trust ERP - Main Application Styles
+   Path: public/assets/css/app.css
+   ========================================================================== */
+
+/* ==========================================================================
+   Fonts
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+
+/* ==========================================================================
+   Root Variables
+   ========================================================================== */
+
+:root {
+
+    --color-primary-dark: #0f172a;
+    --color-primary: #2563eb;
+    --color-primary-light: #3b82f6;
+    --color-primary-subtle: #eff6ff;
+
+    --color-bg-canvas: #f8fafc;
+    --color-surface: #ffffff;
+
+    --color-text-heading: #0f172a;
+    --color-text-body: #334155;
+    --color-text-muted: #64748b;
+
+    --color-border: #e2e8f0;
+
+    /* Semantic Colors */
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
+
+    /* Layout */
+    --sidebar-width: 280px;
+    --sidebar-collapsed-width: 80px;
+
+    --topbar-height: 72px;
+
+    --content-max-width: 1400px;
+
+    --radius-lg: 12px;
+    --radius-md: 8px;
+
+    /* Shadows */
+    --shadow-soft:
+        0 4px 6px -1px rgba(15, 23, 42, 0.05),
+        0 2px 4px -1px rgba(15, 23, 42, 0.03);
+
+    --shadow-hover:
+        0 10px 15px -3px rgba(15, 23, 42, 0.08),
+        0 4px 6px -2px rgba(15, 23, 42, 0.04);
+
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-layout: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+/* ==========================================================================
+   Reset
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    font-family: 'Inter', 'Cairo', system-ui, sans-serif;
+    background-color: var(--color-bg-canvas);
+    color: var(--color-text-body);
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+
+    overflow-x: hidden;
+
+    background-color: var(--color-bg-canvas);
+}
+
+
+/* ==========================================================================
+   Scrollbars
+   ========================================================================== */
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+}
+
+
+/* ==========================================================================
+   Main Application Layout
+   ========================================================================== */
+
+#app-container {
+    display: flex;
+
+    width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+
+    overflow: hidden;
+
+    background-color: var(--color-bg-canvas);
+}
+
+
+/* ==========================================================================
+   SIDEBAR
+   ========================================================================== */
+
+#sidebar {
+    position: relative;
+
+    flex: 0 0 var(--sidebar-width);
+
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    max-width: var(--sidebar-width);
+
+    height: 100vh;
+
+    background-color: var(--color-primary-dark);
+    color: #cbd5e1;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    transition:
+        width var(--transition-layout),
+        min-width var(--transition-layout),
+        max-width var(--transition-layout),
+        flex-basis var(--transition-layout);
+
+    z-index: 100;
+
+    box-shadow:
+        4px 0 24px rgba(0, 0, 0, 0.05);
+}
+
+
+/* ==========================================================================
+   Sidebar Collapsed State
+   ========================================================================== */
+
+#sidebar.collapsed {
+    flex-basis: var(--sidebar-collapsed-width);
+
+    width: var(--sidebar-collapsed-width);
+    min-width: var(--sidebar-collapsed-width);
+    max-width: var(--sidebar-collapsed-width);
+}
+
+
+/* ==========================================================================
+   Sidebar Logo
+   ========================================================================== */
+
+#sidebar .logo-container {
+
+    height: var(--topbar-height);
+    min-height: var(--topbar-height);
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 1.5rem;
+
+    border-bottom:
+        1px solid rgba(255, 255, 255, 0.05);
+
+    background:
+        rgba(0, 0, 0, 0.1);
+
+    overflow: hidden;
+
+    white-space: nowrap;
+}
+
+
+/* Hide logo text when collapsed */
+
+#sidebar.collapsed .logo-container {
+    justify-content: center;
+    padding: 0;
+}
+
+#sidebar.collapsed .logo-container .flex.flex-col {
+    display: none;
+}
+
+
+/* ==========================================================================
+   Sidebar Search
+   ========================================================================== */
+
+#sidebar .px-4.py-3 {
+    flex-shrink: 0;
+}
+
+#sidebar input {
+    min-width: 0;
+}
+
+#sidebar.collapsed .px-4.py-3 input {
+    display: none;
+}
+
+#sidebar.collapsed .px-4.py-3 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+
+/* ==========================================================================
+   Navigation
+   ========================================================================== */
+
+#sidebar nav {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.nav-item {
+
+    display: flex;
+    align-items: center;
+
+    width: 100%;
+
+    padding:
+        0.75rem 1.5rem;
+
+    color: #94a3b8;
+
+    text-decoration: none;
+
+    font-weight: 500;
+    font-size: 0.875rem;
+
+    transition:
+        color var(--transition-fast),
+        background-color var(--transition-fast),
+        border-color var(--transition-fast);
+
+    border-left:
+        3px solid transparent;
+
+    margin:
+        0.25rem 0;
+
+    white-space: nowrap;
+
+    overflow: hidden;
+}
+
+.nav-item:hover {
+    color: #f8fafc;
+
+    background:
+        rgba(255, 255, 255, 0.03);
+}
+
+.nav-item.active {
+
+    color: #ffffff;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(37, 99, 235, 0.15) 0%,
+            transparent 100%
+        );
+
+    border-left-color:
+        var(--color-primary);
+}
+
+.nav-item i {
+
+    width: 24px;
+    min-width: 24px;
+
+    font-size: 1.1rem;
+
+    text-align: center;
+
+    transition:
+        transform var(--transition-fast),
+        color var(--transition-fast);
+}
+
+.nav-item:hover i {
+
+    transform:
+        translateX(2px);
+
+    color:
+        var(--color-primary-light);
+}
+
+
+/* ==========================================================================
+   Collapsed Navigation
+   ========================================================================== */
+
+#sidebar.collapsed .nav-item {
+
+    justify-content: center;
+
+    padding:
+        0.75rem 0.5rem;
+
+    border-left:
+        0;
+
+    border-right:
+        3px solid transparent;
+}
+
+#sidebar.collapsed .nav-item.active {
+
+    border-right-color:
+        var(--color-primary);
+
+    border-left:
+        0;
+}
+
+#sidebar.collapsed .nav-item span {
+    display: none;
+}
+
+#sidebar.collapsed nav p {
+    display: none;
+}
+
+#sidebar.collapsed .nav-item i {
+    margin: 0;
+}
+
+
+/* ==========================================================================
+   Sidebar Footer
+   ========================================================================== */
+
+#sidebar > div:last-child {
+
+    flex-shrink: 0;
+
+    overflow: hidden;
+}
+
+#sidebar.collapsed > div:last-child {
+
+    justify-content: center;
+
+    padding:
+        1rem 0.5rem;
+}
+
+#sidebar.collapsed > div:last-child .flex-1 {
+    display: none;
+}
+
+
+/* ==========================================================================
+   MAIN WRAPPER
+   ========================================================================== */
+
+#main-wrapper {
+
+    flex: 1 1 auto;
+
+    min-width: 0;
+    width: calc(100% - var(--sidebar-width));
+
+    height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    transition:
+        width var(--transition-layout);
+}
+
+
+/* ==========================================================================
+   TOPBAR
+   ========================================================================== */
+
+#topbar {
+
+    position: sticky;
+    top: 0;
+
+    height: var(--topbar-height);
+    min-height: var(--topbar-height);
+
+    width: 100%;
+
+    background:
+        rgba(255, 255, 255, 0.92);
+
+    backdrop-filter:
+        blur(12px);
+
+    -webkit-backdrop-filter:
+        blur(12px);
+
+    border-bottom:
+        1px solid var(--color-border);
+
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    padding:
+        0 2rem;
+
+    z-index: 90;
+}
+
+
+/* ==========================================================================
+   PAGE CONTENT
+   ========================================================================== */
+
+#page-content {
+
+    flex: 1 1 auto;
+
+    width: 100%;
+    min-width: 0;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding:
+        2rem;
+
+    scroll-behavior: smooth;
+}
+
+
+/* ==========================================================================
+   Page Inner Width
+   ========================================================================== */
+
+#page-content > .max-w-7xl {
+
+    width: 100%;
+    max-width: var(--content-max-width);
+
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+
+.card {
+
+    background-color:
+        var(--color-surface);
+
+    border-radius:
+        var(--radius-lg);
+
+    box-shadow:
+        var(--shadow-soft);
+
+    border:
+        1px solid var(--color-border);
+
+    transition:
+        transform var(--transition-fast),
+        box-shadow var(--transition-fast);
+}
+
+.card:hover {
+
+    box-shadow:
+        var(--shadow-hover);
+}
+
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.btn-primary {
+
+    background:
+        var(--color-primary);
+
+    color:
+        white;
+
+    padding:
+        0.6rem 1.2rem;
+
+    border-radius:
+        var(--radius-md);
+
+    border:
+        none;
+
+    font-weight:
+        600;
+
+    font-size:
+        0.875rem;
+
+    cursor:
+        pointer;
+
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    gap:
+        0.5rem;
+
+    transition:
+        all var(--transition-fast);
+
+    box-shadow:
+        0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.btn-primary:hover {
+
+    background:
+        #1d4ed8;
+
+    transform:
+        translateY(-1px);
+
+    box-shadow:
+        0 4px 6px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
+
+.table-responsive {
+
+    width: 100%;
+
+    overflow-x: auto;
+
+    border-radius:
+        0 0 var(--radius-lg) var(--radius-lg);
+
+    -webkit-overflow-scrolling:
+        touch;
+}
+
+table {
+
+    width: 100%;
+
+    border-collapse:
+        collapse;
+
+    min-width:
+        700px;
+}
+
+table th {
+
+    background-color:
+        #f8fafc;
+
+    color:
+        var(--color-text-muted);
+
+    font-size:
+        0.75rem;
+
+    text-transform:
+        uppercase;
+
+    letter-spacing:
+        0.05em;
+
+    font-weight:
+        700;
+
+    padding:
+        1rem 1.5rem !important;
+
+    border-bottom:
+        1px solid var(--color-border);
+
+    white-space:
+        nowrap;
+}
+
+table td {
+
+    padding:
+        1rem 1.5rem !important;
+
+    vertical-align:
+        middle;
+
+    color:
+        var(--color-text-body);
+
+    border-bottom:
+        1px solid #f1f5f9;
+}
+
+table tbody tr {
+
+    transition:
+        background-color 0.15s ease;
+}
+
+table tbody tr:hover {
+
+    background-color:
+        var(--color-primary-subtle);
+}
+
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+select,
+textarea {
+
+    border-radius:
+        var(--radius-md);
+
+    border:
+        1px solid var(--color-border);
+
+    background-color:
+        #f8fafc;
+
+    transition:
+        all var(--transition-fast);
+
+    color:
+        var(--color-text-heading);
+
+    max-width:
+        100%;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+
+    background-color:
+        white;
+
+    border-color:
+        var(--color-primary-light);
+
+    box-shadow:
+        0 0 0 3px rgba(59, 130, 246, 0.1);
+
+    outline:
+        none;
+}
+
+
+/* ==========================================================================
+   Badges
+   ========================================================================== */
+
+.badge {
+
+    padding:
+        0.25rem 0.6rem;
+
+    border-radius:
+        9999px;
+
+    font-size:
+        0.7rem;
+
+    font-weight:
+        700;
+
+    text-transform:
+        uppercase;
+
+    letter-spacing:
+        0.025em;
+
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+}
+
+
+/* ==========================================================================
+   LARGE DESKTOP
+   1281px and above
+   ========================================================================== */
+
+@media (min-width: 1281px) {
+
+    #sidebar {
+        width: var(--sidebar-width);
+        min-width: var(--sidebar-width);
+        max-width: var(--sidebar-width);
+        flex-basis: var(--sidebar-width);
+    }
+
+    /*
+     * Prevent accidental collapsed state from breaking the desktop layout.
+     * JS can still toggle it intentionally, but desktop starts expanded.
+     */
+
+    #page-content {
+        padding:
+            2rem;
+    }
+
+    #topbar {
+        padding:
+            0 2rem;
+    }
+}
+
+
+/* ==========================================================================
+   DESKTOP / LAPTOP
+   1025px - 1280px
+   ========================================================================== */
+
+@media (min-width: 1025px) and (max-width: 1280px) {
+
+    #sidebar {
+
+        width:
+            240px;
+
+        min-width:
+            240px;
+
+        max-width:
+            240px;
+
+        flex-basis:
+            240px;
+    }
+
+    #sidebar.collapsed {
+
+        width:
+            var(--sidebar-collapsed-width);
+
+        min-width:
+            var(--sidebar-collapsed-width);
+
+        max-width:
+            var(--sidebar-collapsed-width);
+
+        flex-basis:
+            var(--sidebar-collapsed-width);
+    }
+
+    #topbar {
+
+        padding:
+            0 1.25rem;
+    }
+
+    #page-content {
+
+        padding:
+            1.5rem;
+    }
+
+    #sidebar .logo-container {
+
+        padding:
+            0 1rem;
+    }
+
+    .nav-item {
+
+        padding:
+            0.7rem 1rem;
+    }
+}
+
+
+/* ==========================================================================
+   TABLET
+   769px - 1024px
+   ========================================================================== */
+
+@media (min-width: 769px) and (max-width: 1024px) {
+
+    :root {
+
+        --sidebar-width: 220px;
+        --sidebar-collapsed-width: 72px;
+        --topbar-height: 64px;
+    }
+
+    #sidebar {
+
+        flex-basis:
+            var(--sidebar-width);
+
+        width:
+            var(--sidebar-width);
+
+        min-width:
+            var(--sidebar-width);
+
+        max-width:
+            var(--sidebar-width);
+    }
+
+    #sidebar.collapsed {
+
+        flex-basis:
+            var(--sidebar-collapsed-width);
+
+        width:
+            var(--sidebar-collapsed-width);
+
+        min-width:
+            var(--sidebar-collapsed-width);
+
+        max-width:
+            var(--sidebar-collapsed-width);
+    }
+
+    #topbar {
+
+        height:
+            var(--topbar-height);
+
+        min-height:
+            var(--topbar-height);
+
+        padding:
+            0 1rem;
+    }
+
+    #page-content {
+
+        padding:
+            1.25rem;
+    }
+
+    #sidebar .logo-container {
+
+        padding:
+            0 1rem;
+    }
+
+    .nav-item {
+
+        padding:
+            0.7rem 1rem;
+    }
+}
+
+
+/* ==========================================================================
+   MOBILE
+   481px - 768px
+   ========================================================================== */
+
+@media (max-width: 768px) {
+
+    :root {
+
+        --sidebar-width: 260px;
+        --sidebar-collapsed-width: 0px;
+        --topbar-height: 64px;
+    }
+
+    #app-container {
+
+        min-height:
+            100vh;
+
+        height:
+            100vh;
+    }
+
+    #sidebar {
+
+        position: fixed;
+
+        left: 0;
+        top: 0;
+
+        width:
+            var(--sidebar-width);
+
+        min-width:
+            var(--sidebar-width);
+
+        max-width:
+            var(--sidebar-width);
+
+        height:
+            100vh;
+
+        transform:
+            translateX(0);
+
+        transition:
+            transform var(--transition-layout);
+
+        box-shadow:
+            10px 0 30px rgba(15, 23, 42, 0.18);
+    }
+
+    /*
+     * On mobile the collapsed state means completely hidden,
+     * not 80px wide.
+     */
+
+    #sidebar.collapsed {
+
+        width:
+            var(--sidebar-width);
+
+        min-width:
+            var(--sidebar-width);
+
+        max-width:
+            var(--sidebar-width);
+
+        flex-basis:
+            var(--sidebar-width);
+
+        transform:
+            translateX(-100%);
+    }
+
+    /*
+     * Always show sidebar labels on mobile when sidebar is open.
+     */
+
+    #sidebar .nav-item span {
+        display:
+            inline;
+    }
+
+    #sidebar nav p {
+        display:
+            block;
+    }
+
+    #sidebar.collapsed .logo-container .flex.flex-col {
+        display:
+            flex;
+    }
+
+    #sidebar.collapsed .nav-item {
+
+        justify-content:
+            flex-start;
+
+        padding:
+            0.75rem 1.5rem;
+
+        border-right:
+            0;
+
+        border-left:
+            3px solid transparent;
+    }
+
+    #sidebar.collapsed > div:last-child .flex-1 {
+        display:
+            block;
+    }
+
+    #sidebar.collapsed > div:last-child {
+
+        justify-content:
+            flex-start;
+
+        padding:
+            1rem;
+    }
+
+    #main-wrapper {
+
+        width:
+            100%;
+
+        height:
+            100vh;
+    }
+
+    #topbar {
+
+        width:
+            100%;
+
+        height:
+            var(--topbar-height);
+
+        min-height:
+            var(--topbar-height);
+
+        padding:
+            0 0.875rem;
+
+        z-index:
+            120;
+    }
+
+    #page-content {
+
+        width:
+            100%;
+
+        padding:
+            1rem;
+
+        overflow-x:
+            hidden;
+    }
+
+    #topbar .hidden.lg\:flex {
+
+        display:
+            none !important;
+    }
+}
+
+
+/* ==========================================================================
+   SMALL MOBILE
+   480px and below
+   ========================================================================== */
+
+@media (max-width: 480px) {
+
+    :root {
+        --sidebar-width: 250px;
+        --topbar-height: 60px;
+    }
+
+    #topbar {
+
+        padding:
+            0 0.65rem;
+    }
+
+    #topbar > div {
+
+        gap:
+            0.5rem;
+    }
+
+    #page-content {
+
+        padding:
+            0.75rem;
+    }
+
+    #sidebar {
+
+        width:
+            var(--sidebar-width);
+
+        min-width:
+            var(--sidebar-width);
+
+        max-width:
+            var(--sidebar-width);
+    }
+
+    /*
+     * Avoid excessive spacing inside the sidebar.
+     */
+
+    .nav-item {
+
+        padding:
+            0.7rem 1rem;
+    }
+
+    /*
+     * Make tables usable on very small screens.
+     */
+
+    .table-responsive {
+
+        margin-left:
+            -0.25rem;
+
+        margin-right:
+            -0.25rem;
+    }
+
+    table th,
+    table td {
+
+        padding:
+            0.75rem 1rem !important;
+    }
+}
+
+
+/* ==========================================================================
+   Utility
+   ========================================================================== */
+
+.hidden-mobile {
+    display: block;
+}
+
+@media (max-width: 768px) {
+
+    .hidden-mobile {
+        display: none !important;
+    }
+}
+
+
+/* ==========================================================================
+   Print
+   ========================================================================== */
+
+@media print {
+
+    #sidebar,
+    #topbar,
+    #sidebar-toggle,
+    .no-print {
+        display: none !important;
+    }
+
+    #main-wrapper {
+        width: 100% !important;
+    }
+
+    #page-content {
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    body,
+    #app-container {
+        background: white !important;
+    }
+}
